@@ -1,0 +1,45 @@
+# 빌드 컨텍스트는 저장소 루트입니다. docker compose 는 backend/Dockerfile 을 그 컨텍스트로 사용합니다.
+networks:
+  arrive:
+    name: arrive-together-net
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    networks:
+      - arrive
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-arrive}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-arrive}
+      POSTGRES_DB: ${POSTGRES_DB:-arrive}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    networks:
+      - arrive
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      VENUE_CATALOG_PATH: /contracts/oryong-demo.json
+      DATABASE_URL: postgresql://${POSTGRES_USER:-arrive}:${POSTGRES_PASSWORD:-arrive}@postgres:5432/${POSTGRES_DB:-arrive}
+      TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

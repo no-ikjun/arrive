@@ -1,0 +1,17 @@
+.git
+.gradle
+.gradle-local
+.tools
+**/.idea
+**/node_modules
+**/dist
+**/build
+**/.tmp-tests
+backend/data
+backend/coverage
+**/*.sqlite
+**/.env
+!**/.env.example
+**/*.log
+**/.DS_Store
+**/.cursor

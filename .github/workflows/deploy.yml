@@ -1,0 +1,236 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'contracts/oryong-demo.json'
+      - '.github/workflows/deploy.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'contracts/oryong-demo.json'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+  IMAGE_NAME: arrive-together-be
+  COMPOSE_REMOTE_DIR: /home/ubuntu/arrive-together-be
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm run test:ci
+
+      - name: Build (Nest)
+        run: npm run build
+
+  docker:
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKER_USERNAME != '' && format('{0}/{1}', secrets.DOCKER_USERNAME, env.IMAGE_NAME) || format('ci-local/{0}', env.IMAGE_NAME) }}
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+            type=sha,prefix=,format=short
+
+      - name: Log in to Docker Hub
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: docker
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure remote deploy directory
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USERNAME }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: mkdir -p ${{ env.COMPOSE_REMOTE_DIR }}
+
+      - name: Copy docker-compose.yml
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USERNAME }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          source: 'backend/docker-compose.yml'
+          target: ${{ env.COMPOSE_REMOTE_DIR }}/
+          strip_components: 1
+          overwrite: true
+
+      - name: Write .env on runner (no leading spaces)
+        env:
+          ENV_FILE_CONTENT: ${{ secrets.ENV_FILE }}
+        run: |
+          printf '%s\n' "$ENV_FILE_CONTENT" > deploy.env
+          test -s deploy.env
+
+      - name: Copy .env to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USERNAME }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          source: deploy.env
+          target: ${{ env.COMPOSE_REMOTE_DIR }}/
+          overwrite: true
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USERNAME }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -Eeuo pipefail
+
+            APP_NAME="${{ env.IMAGE_NAME }}"
+            IMAGE="${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest"
+            COMPOSE_DIR="${{ env.COMPOSE_REMOTE_DIR }}"
+            ENV_PATH="${COMPOSE_DIR}/.env"
+            COMPOSE_FILE="${COMPOSE_DIR}/docker-compose.yml"
+            COMPOSE_PROJECT="arrive-together"
+            HOST_PORT="3002"
+            CONTAINER_PORT="3000"
+            DOCKER_NETWORK="arrive-together-net"
+
+            echo "[1/7] Install .env (from CI, no heredoc corruption)"
+            umask 077
+            mv -f "${COMPOSE_DIR}/deploy.env" "${ENV_PATH}"
+            chmod 600 "${ENV_PATH}"
+
+            echo "[2/7] Postgres (compose project ${COMPOSE_PROJECT}, network ${DOCKER_NETWORK})"
+            docker compose -p "${COMPOSE_PROJECT}" -f "${COMPOSE_FILE}" --env-file "${ENV_PATH}" up -d postgres
+
+            echo "[3/7] Wait for Postgres (DNS: postgres)"
+            ok=0
+            for i in $(seq 1 60); do
+              if docker run --rm --network "${DOCKER_NETWORK}" --env-file "${ENV_PATH}" \
+                postgres:16-alpine \
+                sh -c 'pg_isready -h postgres -p 5432 -U "${POSTGRES_USER:-arrive}" -d "${POSTGRES_DB:-arrive}"' \
+                >/dev/null 2>&1; then
+                ok=1
+                break
+              fi
+              echo "  waiting for postgres (${i}/60)..."
+              sleep 2
+            done
+            if [ "${ok}" -ne 1 ]; then
+              echo "Postgres did not become ready in time. Last pg_isready:"
+              docker run --rm --network "${DOCKER_NETWORK}" --env-file "${ENV_PATH}" \
+                postgres:16-alpine \
+                sh -c 'pg_isready -h postgres -p 5432 -U "${POSTGRES_USER:-arrive}" -d "${POSTGRES_DB:-arrive}"' || true
+              docker compose -p "${COMPOSE_PROJECT}" -f "${COMPOSE_FILE}" --env-file "${ENV_PATH}" logs postgres --tail 80 || true
+              exit 1
+            fi
+
+            echo "[4/7] Pull app image"
+            docker pull "${IMAGE}"
+
+            echo "[5/7] Database migrations (one-shot)"
+            docker run --rm \
+              --network "${DOCKER_NETWORK}" \
+              --env-file "${ENV_PATH}" \
+              -e NODE_ENV=production \
+              "${IMAGE}" \
+              npm run db:migrate
+
+            echo "[6/7] Stop and remove existing app container"
+            if docker ps -aq -f "name=^${APP_NAME}$" | grep -q .; then
+              docker rm -f "$(docker ps -aq -f "name=^${APP_NAME}$")"
+            fi
+
+            echo "[7/7] Run app container"
+            docker run -d --name "${APP_NAME}" \
+              --network "${DOCKER_NETWORK}" \
+              -p "127.0.0.1:${HOST_PORT}:${CONTAINER_PORT}" \
+              --env-file "${ENV_PATH}" \
+              -e NODE_ENV=production \
+              -e PORT=3000 \
+              -e VENUE_CATALOG_PATH=/contracts/oryong-demo.json \
+              --restart always \
+              --health-cmd='wget -q -O /dev/null http://127.0.0.1:3000/health || exit 1' \
+              --health-interval=10s --health-retries=5 --health-timeout=3s --health-start-period=15s \
+              "${IMAGE}"
+
+            echo "[health] Wait for healthy"
+            ok=0
+            for i in $(seq 1 30); do
+              status="$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "${APP_NAME}" 2>/dev/null || echo starting)"
+              echo "  try ${i}: ${status}"
+              if [ "${status}" = "healthy" ]; then
+                ok=1
+                break
+              fi
+              sleep 2
+            done
+            if [ "${ok}" -ne 1 ]; then
+              echo "Health check did not pass in time"
+              docker logs "${APP_NAME}" --tail 80 || true
+              exit 1
+            fi
+
+            docker ps --filter "name=^${APP_NAME}$" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"

@@ -1,0 +1,167 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          126.83931,
+          35.22669
+        ]
+      },
+      "properties": {
+        "id": "dropoff-demo",
+        "name": "오룡관 북측 하차 지점",
+        "sourceImage": "01-locations.png",
+        "sourcePixel": [
+          728,
+          256
+        ],
+        "scaleImagePixel": [
+          788.8893386160195,
+          214.5863961126069
+        ],
+        "interpretation": "사용자가 잠시 하차 가능하다고 표시한 화살표 끝",
+        "coordinateStatus": "IMAGE_DERIVED_ESTIMATE",
+        "fieldVerified": false,
+        "routingReady": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          126.83961,
+          35.2262
+        ]
+      },
+      "properties": {
+        "id": "parking-oryong-demo",
+        "name": "오룡관 주차장 1",
+        "sourceImage": "01-locations.png",
+        "sourcePixel": [
+          794,
+          391
+        ],
+        "scaleImagePixel": [
+          917.0056271358104,
+          476.5846296266494
+        ],
+        "interpretation": "주차장 1 핀 끝; 주차 구역 대표점, 차량 진입구 아님",
+        "coordinateStatus": "IMAGE_DERIVED_ESTIMATE",
+        "fieldVerified": false,
+        "routingReady": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          126.83858,
+          35.2262
+        ]
+      },
+      "properties": {
+        "id": "parking-oryong-2-demo",
+        "name": "오룡관 주차장 2",
+        "sourceImage": "01-locations.png",
+        "sourcePixel": [
+          566,
+          390
+        ],
+        "scaleImagePixel": [
+          474.5007180199035,
+          474.6823447921935
+        ],
+        "interpretation": "주차장 2 핀 끝; 주차 구역 대표점, 차량 진입구 아님",
+        "coordinateStatus": "IMAGE_DERIVED_ESTIMATE",
+        "fieldVerified": false,
+        "routingReady": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          126.83902,
+          35.22538
+        ]
+      },
+      "properties": {
+        "id": "parking-football-demo",
+        "name": "축구장 주차장",
+        "sourceImage": "02-football-approach.png",
+        "sourcePixel": [
+          519,
+          614
+        ],
+        "scaleImagePixel": [
+          666.6816028801693,
+          909.4198269041422
+        ],
+        "interpretation": "축구장 북측 주차 구역을 가리키는 차량 접근 화살표 끝; 정확한 진입구 미확인",
+        "coordinateStatus": "IMAGE_DERIVED_ESTIMATE",
+        "fieldVerified": false,
+        "routingReady": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          126.8373,
+          35.22626
+        ]
+      },
+      "properties": {
+        "id": "parking-dorm-demo",
+        "name": "대학원 기숙사 주차장",
+        "sourceImage": "03-parking-branches.png",
+        "sourcePixel": [
+          148,
+          371
+        ],
+        "scaleImagePixel": [
+          -80.5656840623289,
+          449.5258000639498
+        ],
+        "interpretation": "서측 주차 구역을 가리키는 화살표 끝; 정확한 진입구 미확인",
+        "coordinateStatus": "IMAGE_DERIVED_ESTIMATE",
+        "fieldVerified": false,
+        "routingReady": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          126.83947,
+          35.22648
+        ]
+      },
+      "properties": {
+        "id": "meeting-demo",
+        "name": "오룡관 주차장 1 입구 옆 만남 지점",
+        "sourceImage": "04-meeting-point.png",
+        "sourcePixel": [
+          841,
+          428
+        ],
+        "scaleImagePixel": [
+          856.9036667996295,
+          323.6539542100515
+        ],
+        "interpretation": "사용자가 최종 선택한 노란 원 중심 부근",
+        "coordinateStatus": "IMAGE_DERIVED_ESTIMATE",
+        "fieldVerified": false,
+        "routingReady": false
+      }
+    }
+  ]
+}

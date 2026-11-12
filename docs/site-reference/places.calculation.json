@@ -1,0 +1,71 @@
+{
+  "registrations": {
+    "01-locations.png": {
+      "transform": [
+        [
+          1.9408102637926548,
+          0.0001689711813009909,
+          -624.0637900474463
+        ],
+        [
+          -0.0001689711813009909,
+          1.9408102637926548,
+          -282.1380203983256
+        ]
+      ],
+      "inliers": 1739,
+      "medianResidualPixels": 0.25992215372853766
+    },
+    "02-football-approach.png": {
+      "transform": [
+        [
+          1.9408361781762176,
+          0.00019609212902231736,
+          -340.7327741605074
+        ],
+        [
+          -0.00019609212902231736,
+          1.9408361781762176,
+          -282.1518146810929
+        ]
+      ],
+      "inliers": 1898,
+      "medianResidualPixels": 0.2562123567602531
+    },
+    "03-parking-branches.png": {
+      "transform": [
+        [
+          1.9407946849410158,
+          0.00019856806299248936,
+          -367.8769661849695
+        ],
+        [
+          -0.00019856806299248936,
+          1.9407946849410158,
+          -270.4796399758441
+        ]
+      ],
+      "inliers": 1854,
+      "medianResidualPixels": 0.2536571718043899
+    },
+    "04-meeting-point.png": {
+      "transform": [
+        [
+          1.3332116514219097,
+          8.851121328391689e-05,
+          -264.36521484548217
+        ],
+        [
+          -8.851121328391689e-05,
+          1.3332116514219097,
+          -246.88619466815402
+        ]
+      ],
+      "inliers": 2793,
+      "medianResidualPixels": 0.22974692163471452
+    }
+  },
+  "georeferenceSource": "meeting-point.calculation.json",
+  "absoluteAccuracyMeters": null,
+  "notes": "Source pixels are manually interpreted annotation tips, not surveyed entrances. Parking order is a demo preference, not a driving route."
+}

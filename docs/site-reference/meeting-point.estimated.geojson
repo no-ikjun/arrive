@@ -1,0 +1,32 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          126.83947,
+          35.22648
+        ]
+      },
+      "properties": {
+        "id": "oryong-meeting-point-estimate",
+        "name": "오룡관 주차장 1 입구 옆 만남 지점",
+        "status": "IMAGE_DERIVED_ESTIMATE",
+        "fieldVerified": false,
+        "coordinateSystem": "WGS84",
+        "sourceImage": "04-meeting-point.png",
+        "sourcePixel": [
+          841,
+          428
+        ],
+        "scaleImage": "05-scale-reference.png",
+        "reviewRadiusMeters": 20,
+        "reviewRadiusMeaning": "Planning allowance only; not a measured or guaranteed accuracy bound.",
+        "source": "User-provided Naver screenshot registered to Esri World Imagery z19 tiles.",
+        "computedAt": "2026-11-12"
+      }
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "venueId": "gist-oryong-demo",
+  "catalogVersion": "oryong-demo-v2",
+  "name": "GIST 오룡관",
+  "verification": "DEMO_UNVERIFIED",
+  "notice": "사용자가 표시한 위성사진에서 좌표를 추출한 시연 데이터입니다. 좌표는 추정값이며 승하차 허용 여부, 차량 진입구, 방문객 주차 조건과 보행 동선은 미확인입니다. 실제 길안내에 사용하지 마세요.",
+  "dropoff": {
+    "id": "dropoff-demo",
+    "name": "오룡관 북측 하차 지점",
+    "coordinate": {
+      "latitude": 35.22669,
+      "longitude": 126.83931
+    },
+    "instructions": "북측 도로에서 사용자가 표시한 하차 위치예요. 정차 허용 여부와 도로 측면은 현장에서 확인해 주세요.",
+    "imageUrl": null
+  },
+  "meetingPoint": {
+    "id": "meeting-demo",
+    "name": "오룡관 주차장 1 입구 옆 만남 지점",
+    "coordinate": {
+      "latitude": 35.22648,
+      "longitude": 126.83947
+    },
+    "instructions": "주차 장소가 바뀌어도 이곳에서 다시 만나요. 표시 위치는 추정값이며 보행 공간과 현장 표식은 확인 예정이에요.",
+    "imageUrl": null
+  },
+  "parkingCandidates": [
+    {
+      "id": "parking-oryong-demo",
+      "name": "오룡관 주차장 1",
+      "coordinate": {
+        "latitude": 35.2262,
+        "longitude": 126.83961
+      },
+      "instructions": "오룡관 동측 주차 구역 · 이미지의 주차장 1 표시 위치예요.",
+      "imageUrl": null
+    },
+    {
+      "id": "parking-oryong-2-demo",
+      "name": "오룡관 주차장 2",
+      "coordinate": {
+        "latitude": 35.2262,
+        "longitude": 126.83858
+      },
+      "instructions": "오룡관 서측 주차 구역 · 이미지의 주차장 2 표시 위치예요.",
+      "imageUrl": null
+    },
+    {
+      "id": "parking-football-demo",
+      "name": "축구장 주차장",
+      "coordinate": {
+        "latitude": 35.22538,
+        "longitude": 126.83902
+      },
+      "instructions": "축구장 북측 주차 구역 · 정문에서 바로 좌회전하지 않고 오룡관을 돌아 접근해요.",
+      "imageUrl": null
+    },
+    {
+      "id": "parking-dorm-demo",
+      "name": "대학원 기숙사 주차장",
+      "coordinate": {
+        "latitude": 35.22626,
+        "longitude": 126.8373
+      },
+      "instructions": "체육관 서측의 기숙사 주차 구역 · 오룡관을 돌아 접근하는 분기예요.",
+      "imageUrl": null
+    }
+  ]
+}
