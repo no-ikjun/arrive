@@ -1,10 +1,10 @@
 export const stages = ['PLANNED', 'TO_DROPOFF', 'TO_PARKING', 'WALKING_TO_MEETING', 'REUNITED', 'CANCELLED'];
 export const copy = {
-  PLANNED: ['도착 계획을 준비했어요', '먼저 내릴 곳과 다시 만날 장소를 확인하세요.'],
-  TO_DROPOFF: ['먼저 편하게 내리세요', '하차한 뒤에는 아래의 약속한 장소에서 다시 만나요.'],
+  PLANNED: ['도착 계획을 준비했어요', '동승자는 입구로, 운전자는 주차장으로 이동할 계획이에요.'],
+  TO_DROPOFF: ['먼저 편하게 내리세요', '내린 뒤에는 건물 입구 안내를 확인하세요.'],
   TO_PARKING: ['운전자는 주차 중이에요', '주차를 마치면 이 화면에 표시돼요.'],
-  WALKING_TO_MEETING: ['주차를 마쳤어요', '약속한 만남 장소에서 운전자와 다시 만나요.'],
-  REUNITED: ['함께 도착했어요', '다시 만났음을 확인했어요. 이제 함께 방문을 이어가세요.'],
+  WALKING_TO_MEETING: ['주차를 마쳤어요', '운전자가 건물로 이동할 차례예요. 실시간 보행 위치는 표시하지 않아요.'],
+  REUNITED: ['함께 도착했어요', '운전자가 합류 완료를 확인했어요. 함께 방문을 이어가세요.'],
   CANCELLED: ['이번 방문 안내가 끝났어요', '이 계획은 더 이상 진행되지 않아요. 필요한 경우 운전자에게 연락해 주세요.'],
 };
 export function tokenFromHash(hash) {

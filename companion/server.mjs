@@ -12,14 +12,23 @@ const assets = new Map([
   ['/model.js', ['model.js', 'text/javascript; charset=utf-8']],
   ['/style.css', ['style.css', 'text/css; charset=utf-8']],
 ]);
+assets.set('/map/map.css', ['map/map.css', 'text/css; charset=utf-8']);
+assets.set('/map/guide.js', ['map/guide.js', 'text/javascript; charset=utf-8']);
+assets.set('/map/driver.html', ['map/driver.html', 'text/html; charset=utf-8']);
+assets.set('/map/driver.js', ['map/driver.js', 'text/javascript; charset=utf-8']);
+assets.set('/map/arrival-map.js', ['map/arrival-map.js', 'text/javascript; charset=utf-8']);
+assets.set('/map/vendor/leaflet.js', ['map/vendor/leaflet.js', 'text/javascript; charset=utf-8']);
+assets.set('/map/vendor/LICENSE', ['map/vendor/LICENSE', 'text/plain; charset=utf-8']);
+assets.set('/map/vendor/leaflet.css', ['map/vendor/leaflet.css', 'text/css; charset=utf-8']);
+assets.set('/guides/gist-oryong-demo.oryong-demo-v2.json', ['guides/gist-oryong-demo.oryong-demo-v2.json', 'application/json; charset=utf-8']);
 export function createServer(apiBase = 'http://127.0.0.1:8080') {
   const base = new URL(apiBase);
   if (!['http:', 'https:'].includes(base.protocol) || base.username || base.password || base.search || base.hash) throw new Error('Invalid API_BASE_URL');
   return http.createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'");
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'");
     const send = (status, data, type = 'application/json; charset=utf-8') => { res.writeHead(status, { 'Content-Type': type }); res.end(data); };
     try {
       const path = new URL(req.url, 'http://companion.local');

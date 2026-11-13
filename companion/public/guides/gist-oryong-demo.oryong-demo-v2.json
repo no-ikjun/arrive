@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "venueId": "gist-oryong-demo",
+  "catalogVersion": "oryong-demo-v2",
+  "guideVersion": "oryong-arrival-1",
+  "arrivalMode": "ENTER_BUILDING",
+  "entrance": {
+    "id": "entrance-south-plaza",
+    "name": "남측 광장 쪽 입구",
+    "coordinate": {
+      "latitude": 35.22585,
+      "longitude": 126.83921
+    },
+    "verification": "ESTIMATED",
+    "instructions": "건물 남측의 넓은 광장으로 이동한 뒤, 광장을 마주한 출입구를 확인하세요. 북측 하차 지점이 건물 입구는 아니에요.",
+    "imageUrl": null
+  },
+  "steps": [
+    "북측 하차 지점에서 내린 뒤 주변 보행 공간을 확인하세요.",
+    "건물 남측의 넓은 광장 쪽으로 이동하세요.",
+    "광장 쪽 출입구에서 행사 안내를 확인하고 먼저 들어가세요."
+  ],
+  "walkingRoute": null,
+  "accessNote": "입구 방향은 현장 사용자 확인 · 정확한 문 위치와 보행 경로는 확인 전입니다.",
+  "provenance": {
+    "direction": "User confirmed south plaza entrance, 2026-11-13",
+    "coordinate": "Estimated facade point at pixel (748,660) in 05-scale-reference.png using docs/site-reference/meeting-point.calculation.json. Not a surveyed doorway.",
+    "photo": "Awaiting on-site photo"
+  }
+}
