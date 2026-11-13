@@ -51,3 +51,7 @@ Build watch paths는 `companion/*`를 포함하면 됩니다. `main`에 새 코�
 - 차량 APK의 `ARRIVAL_COMPANION_BASE_URL`에 HTTPS 웹 origin을 설정하고 다시 빌드합니다.
 
 로컬에서는 `npm start`로 기존 Node 서버를 실행합니다. Cloudflare에서는 Node 서버 프로세스나 Docker 이미지를 실행하지 않습니다.
+
+실행 환경은 `wrangler.toml`에 고정합니다. `compatibility_date = "2026-11-13"`은 API 요청의 `cache: no-store` 지원을 포함합니다. 과거 호환성 날짜에서는 이 옵션이 실행 시 오류를 낼 수 있으므로 번들 빌드 성공만으로 API 연결을 판단하지 않습니다. 공개 API 주소도 이 파일의 `[vars]`에서 관리하며, 이 설정이 배포되면 동일 항목의 대시보드 값 대신 파일을 수정합니다. 비밀값은 이 파일에 넣지 않습니다.
+
+Cloudflare Fetch는 `redirect: error`를 지원하지 않으므로 `manual`로 요청하고 3xx 응답을 명시적으로 거부합니다. 리다이렉트 대상에는 인증 헤더를 전달하지 않습니다.

@@ -1,0 +1,7 @@
+name = "arrive"
+pages_build_output_dir = "./public"
+# Request.cache = no-store requires a recent Workers compatibility date.
+compatibility_date = "2026-11-13"
+
+[vars]
+API_BASE_URL = "https://arrive-api.ikjun.com"

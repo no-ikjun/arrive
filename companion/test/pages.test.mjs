@@ -15,7 +15,7 @@ test('Pages proxy forwards only allowed bearer reads and disables caching', asyn
   assert.equal(called.url, 'https://arrive-api.example/v1/shared-session');
   assert.equal(called.options.headers.Authorization, auth.Authorization);
   assert.equal(called.options.headers.Cookie, undefined);
-  assert.equal(called.options.redirect, 'error');
+  assert.equal(called.options.redirect, 'manual');
   assert.equal(called.options.cache, 'no-store');
   assert.equal(response.headers.get('cache-control'), 'no-store');
   assert.deepEqual(await response.json(), { revision: 3 });

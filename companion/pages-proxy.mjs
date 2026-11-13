@@ -44,7 +44,7 @@ export async function proxyRequest(request, env, fetchUpstream = fetch) {
   } catch { return json(503, 'API_NOT_CONFIGURED'); }
   try {
     const upstream = await fetchUpstream(base.origin + url.pathname.slice(4), {
-      headers, redirect: 'error', signal: AbortSignal.timeout(8000), cache: 'no-store',
+      headers, redirect: 'manual', signal: AbortSignal.timeout(8000), cache: 'no-store',
     });
     if (upstream.status >= 300 && upstream.status < 400) throw new Error('Unexpected redirect');
     const text = await readLimited(upstream.body);
