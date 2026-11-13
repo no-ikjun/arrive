@@ -33,10 +33,7 @@ export class SessionsService {
       const replay = await this.replay(tx, CREATE_OWNER, CREATE_ENDPOINT, idempotencyKey, digest);
       if (replay) return replay;
 
-      const venue = this.venues.getById(dto.venueId);
-      if (venue.catalogVersion !== dto.catalogVersion) {
-        throw new ApiError(400, 'INVALID_REQUEST', '알려진 장소의 카탈로그 버전이 올바르지 않습니다.');
-      }
+      const venue = this.venues.requireForCreate(dto.venueId, dto.catalogVersion);
 
       const createdAt = nowIso();
       const trip = initialTrip(venue.meetingPoint.id, venue.parkingCandidates[0].id);
@@ -152,7 +149,11 @@ export class SessionsService {
         return conflict;
       }
 
-      const parkingOrder = this.venues.catalog.parkingCandidates.map((point) => point.id);
+      const venue = this.venues.findExact(session.venueId, session.catalogVersion);
+      if (!venue) {
+        return errorResult(500, 'CATALOG_UNAVAILABLE', '방문에 고정된 장소 정보를 현재 사용할 수 없습니다.');
+      }
+      const parkingOrder = venue.parkingCandidates.map((point) => point.id);
       const applied = applyTripEvent(
         {
           stage: session.stage as TripStage,

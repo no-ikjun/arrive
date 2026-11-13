@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Headers, HttpCode, Param, Post, Req, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ApiError, type ErrorCode } from '../common/api-error';
 import { normalizeUuid } from '../common/uuid';
 import type { OwnerRequest } from './auth';
@@ -44,6 +44,11 @@ export class SessionsController {
   @HttpCode(200)
   @ApiBearerAuth('ownerBearer')
   @ApiOperation({ operationId: 'applySessionEvent' })
+  @ApiResponse({
+    status: 500,
+    description:
+      '세션에 고정된 카탈로그가 없으면 이벤트를 적용하지 않고 revision을 유지합니다. 이 응답은 멱등 기록에 남기지 않습니다. 버전 파일을 인덱스에 다시 넣고 재시작하세요. 최신 버전으로 대체하지 않습니다.',
+  })
   async applyEvent(
     @Param('sessionId') sessionId: string,
     @Req() request: OwnerRequest,

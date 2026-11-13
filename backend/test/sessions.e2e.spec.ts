@@ -24,6 +24,7 @@ async function createApp(dbPath: string, throttleLimit = '10000'): Promise<INest
   process.env.THROTTLE_TTL_MS = '60000';
   process.env.CLEANUP_INTERVAL_MS = '0';
   process.env.PORT = '0';
+  delete process.env.VENUE_CATALOG_INDEX_PATH;
   process.env.VENUE_CATALOG_PATH = CATALOG;
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
   const app = moduleRef.createNestApplication({ bodyParser: false });

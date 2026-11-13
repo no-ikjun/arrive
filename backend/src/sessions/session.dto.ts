@@ -9,7 +9,7 @@ export class CreateSessionDto {
   @IsNotEmpty()
   venueId!: string;
 
-  @ApiProperty({ example: 'oryong-demo-v1' })
+  @ApiProperty({ example: 'oryong-demo-v2' })
   @IsString()
   @IsNotEmpty()
   catalogVersion!: string;

@@ -7,7 +7,8 @@ export type ErrorCode =
   | 'REVISION_CONFLICT'
   | 'INVALID_TRANSITION'
   | 'IDEMPOTENCY_CONFLICT'
-  | 'RATE_LIMITED';
+  | 'RATE_LIMITED'
+  | 'CATALOG_UNAVAILABLE';
 
 export class ApiError extends HttpException {
   constructor(

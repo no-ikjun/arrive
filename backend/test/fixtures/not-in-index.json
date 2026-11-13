@@ -1,0 +1,30 @@
+{
+  "venueId": "fixture-a",
+  "catalogVersion": "not-in-index",
+  "name": "인덱스에 없는 버전",
+  "verification": "DEMO_UNVERIFIED",
+  "notice": "요청 문자열을 파일 경로로 쓰면 안 되는 테스트 파일입니다.",
+  "dropoff": {
+    "id": "dropoff-stray",
+    "name": "하차",
+    "coordinate": null,
+    "instructions": "테스트",
+    "imageUrl": null
+  },
+  "meetingPoint": {
+    "id": "meet-stray",
+    "name": "만남",
+    "coordinate": null,
+    "instructions": "테스트",
+    "imageUrl": null
+  },
+  "parkingCandidates": [
+    {
+      "id": "park-stray",
+      "name": "주차",
+      "coordinate": null,
+      "instructions": "테스트",
+      "imageUrl": null
+    }
+  ]
+}

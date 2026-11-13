@@ -1,0 +1,12 @@
+{
+  "venues": [
+    {
+      "venueId": "fixture-a",
+      "currentVersion": "fixture-v1",
+      "versions": [
+        { "catalogVersion": "fixture-v1", "path": "../venue-a-v1.json" },
+        { "catalogVersion": "fixture-v2", "path": "../venue-a-v2.json" }
+      ]
+    }
+  ]
+}

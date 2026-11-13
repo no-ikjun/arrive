@@ -12,6 +12,7 @@ export interface AppEnv {
   cleanupIntervalMs: number;
   throttleTtlMs: number;
   throttleLimit: number;
+  venueCatalogIndexPath?: string;
   venueCatalogPath: string;
   bodyLimit: string;
 }
@@ -34,6 +35,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     throw new Error('CORS_ORIGINS is required');
   }
 
+  const indexOverride = source.VENUE_CATALOG_INDEX_PATH?.trim() || undefined;
   const catalogOverride = source.VENUE_CATALOG_PATH?.trim();
   const databaseUrl = source.DATABASE_URL?.trim() || undefined;
   return {
@@ -45,7 +47,8 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     cleanupIntervalMs: numberFrom(source.CLEANUP_INTERVAL_MS, 60_000),
     throttleTtlMs: numberFrom(source.THROTTLE_TTL_MS, 60_000),
     throttleLimit: numberFrom(source.THROTTLE_LIMIT, 120),
-    venueCatalogPath: catalogOverride || resolveCatalog(),
+    venueCatalogIndexPath: indexOverride,
+    venueCatalogPath: indexOverride ? catalogOverride || '' : catalogOverride || resolveCatalog(),
     bodyLimit: '16kb',
   };
 }

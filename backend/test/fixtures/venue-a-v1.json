@@ -1,0 +1,37 @@
+{
+  "venueId": "fixture-a",
+  "catalogVersion": "fixture-v1",
+  "name": "테스트 장소 A",
+  "verification": "DEMO_UNVERIFIED",
+  "notice": "테스트용 장소입니다. 실제 지원 장소가 아닙니다.",
+  "dropoff": {
+    "id": "dropoff-a1",
+    "name": "하차 A1",
+    "coordinate": null,
+    "instructions": "테스트 하차",
+    "imageUrl": null
+  },
+  "meetingPoint": {
+    "id": "meet-a1",
+    "name": "만남 A1",
+    "coordinate": null,
+    "instructions": "테스트 만남",
+    "imageUrl": null
+  },
+  "parkingCandidates": [
+    {
+      "id": "park-a1",
+      "name": "주차 A1",
+      "coordinate": null,
+      "instructions": "테스트 주차",
+      "imageUrl": null
+    },
+    {
+      "id": "park-a2",
+      "name": "주차 A2",
+      "coordinate": null,
+      "instructions": "테스트 주차",
+      "imageUrl": null
+    }
+  ]
+}

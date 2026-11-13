@@ -22,6 +22,13 @@ export interface Venue {
   parkingCandidates: VenuePoint[];
 }
 
+export interface VenueSummary {
+  venueId: string;
+  catalogVersion: string;
+  name: string;
+  verification: Venue['verification'];
+}
+
 /** Unverified catalog entries stay DEMO. Only an explicit VERIFIED label is accepted. */
 export function dataModeFor(verification: string): 'DEMO' | 'VERIFIED' {
   return verification === 'VERIFIED' ? 'VERIFIED' : 'DEMO';

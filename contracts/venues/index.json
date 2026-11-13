@@ -1,0 +1,14 @@
+{
+  "venues": [
+    {
+      "venueId": "gist-oryong-demo",
+      "currentVersion": "oryong-demo-v2",
+      "versions": [
+        {
+          "catalogVersion": "oryong-demo-v2",
+          "path": "../oryong-demo.json"
+        }
+      ]
+    }
+  ]
+}

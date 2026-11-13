@@ -38,7 +38,7 @@ export function configureApp(app: INestApplication, env: AppEnv): void {
   const document = SwaggerModule.createDocument(
     app,
     new DocumentBuilder()
-      .setTitle('Arrive Together session API')
+      .setTitle('arrive session API')
       .setDescription('로컬 개발용 문서입니다. 계약의 기준은 contracts/openapi.yaml 입니다.')
       .setVersion('0.1.0')
       .addBearerAuth({ type: 'http', scheme: 'bearer' }, 'ownerBearer')

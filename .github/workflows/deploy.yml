@@ -6,12 +6,14 @@ on:
     paths:
       - 'backend/**'
       - 'contracts/oryong-demo.json'
+      - 'contracts/venues/**'
       - '.github/workflows/deploy.yml'
   pull_request:
     branches: [main]
     paths:
       - 'backend/**'
       - 'contracts/oryong-demo.json'
+      - 'contracts/venues/**'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
@@ -107,18 +109,6 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           script: mkdir -p ${{ env.COMPOSE_REMOTE_DIR }}
 
-      - name: Copy docker-compose.yml
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.LIGHTSAIL_HOST }}
-          username: ${{ secrets.LIGHTSAIL_USERNAME }}
-          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          port: ${{ secrets.SSH_PORT }}
-          source: 'backend/docker-compose.yml'
-          target: ${{ env.COMPOSE_REMOTE_DIR }}/
-          strip_components: 1
-          overwrite: true
-
       - name: Write .env on runner (no leading spaces)
         env:
           ENV_FILE_CONTENT: ${{ secrets.ENV_FILE }}
@@ -151,21 +141,16 @@ jobs:
             IMAGE="${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest"
             COMPOSE_DIR="${{ env.COMPOSE_REMOTE_DIR }}"
             ENV_PATH="${COMPOSE_DIR}/.env"
-            COMPOSE_FILE="${COMPOSE_DIR}/docker-compose.yml"
-            COMPOSE_PROJECT="arrive-together"
             HOST_PORT="3002"
             CONTAINER_PORT="3000"
-            DOCKER_NETWORK="arrive-together-net"
+            DOCKER_NETWORK="gistag-net"
 
-            echo "[1/7] Install .env (from CI, no heredoc corruption)"
+            echo "[1/6] Install .env (from CI, no heredoc corruption)"
             umask 077
             mv -f "${COMPOSE_DIR}/deploy.env" "${ENV_PATH}"
             chmod 600 "${ENV_PATH}"
 
-            echo "[2/7] Postgres (compose project ${COMPOSE_PROJECT}, network ${DOCKER_NETWORK})"
-            docker compose -p "${COMPOSE_PROJECT}" -f "${COMPOSE_FILE}" --env-file "${ENV_PATH}" up -d postgres
-
-            echo "[3/7] Wait for Postgres (DNS: postgres)"
+            echo "[2/6] Wait for gistag Postgres (network ${DOCKER_NETWORK}, DNS: postgres)"
             ok=0
             for i in $(seq 1 60); do
               if docker run --rm --network "${DOCKER_NETWORK}" --env-file "${ENV_PATH}" \
@@ -179,18 +164,17 @@ jobs:
               sleep 2
             done
             if [ "${ok}" -ne 1 ]; then
-              echo "Postgres did not become ready in time. Last pg_isready:"
+              echo "gistag Postgres did not become ready on ${DOCKER_NETWORK}. Last pg_isready:"
               docker run --rm --network "${DOCKER_NETWORK}" --env-file "${ENV_PATH}" \
                 postgres:16-alpine \
                 sh -c 'pg_isready -h postgres -p 5432 -U "${POSTGRES_USER:-arrive}" -d "${POSTGRES_DB:-arrive}"' || true
-              docker compose -p "${COMPOSE_PROJECT}" -f "${COMPOSE_FILE}" --env-file "${ENV_PATH}" logs postgres --tail 80 || true
               exit 1
             fi
 
-            echo "[4/7] Pull app image"
+            echo "[3/6] Pull app image"
             docker pull "${IMAGE}"
 
-            echo "[5/7] Database migrations (one-shot)"
+            echo "[4/6] Database migrations (one-shot)"
             docker run --rm \
               --network "${DOCKER_NETWORK}" \
               --env-file "${ENV_PATH}" \
@@ -198,19 +182,19 @@ jobs:
               "${IMAGE}" \
               npm run db:migrate
 
-            echo "[6/7] Stop and remove existing app container"
+            echo "[5/6] Stop and remove existing app container"
             if docker ps -aq -f "name=^${APP_NAME}$" | grep -q .; then
               docker rm -f "$(docker ps -aq -f "name=^${APP_NAME}$")"
             fi
 
-            echo "[7/7] Run app container"
+            echo "[6/6] Run app container"
             docker run -d --name "${APP_NAME}" \
               --network "${DOCKER_NETWORK}" \
               -p "127.0.0.1:${HOST_PORT}:${CONTAINER_PORT}" \
               --env-file "${ENV_PATH}" \
               -e NODE_ENV=production \
               -e PORT=3000 \
-              -e VENUE_CATALOG_PATH=/contracts/oryong-demo.json \
+              -e VENUE_CATALOG_INDEX_PATH=/contracts/venues/index.json \
               --restart always \
               --health-cmd='wget -q -O /dev/null http://127.0.0.1:3000/health || exit 1' \
               --health-interval=10s --health-retries=5 --health-timeout=3s --health-start-period=15s \
