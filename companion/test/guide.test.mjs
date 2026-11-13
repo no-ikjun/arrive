@@ -26,3 +26,21 @@ test('map handoff encodes labels and accepts only valid coordinates', () => {
   assert.ok(url.endsWith(',35.22585,126.83921'));
   assert.equal(externalMapUrl({coordinate:null}), null);
 });
+
+test('another venue supplies its own guide; mismatched fallback cannot leak pilot information', async t => {
+  const other = {...venue, venueId:'sample-hall', catalogVersion:'hall-v1', name:'테스트 전시장'};
+  const otherGuide = {...guide, venueId:other.venueId, catalogVersion:other.catalogVersion,
+    entrance:{...guide.entrance,id:'east-entry',name:'동문',coordinate:{latitude:37.5,longitude:127.0}}};
+  assert.equal(await loadGuide({...other,arrivalGuide:otherGuide}), otherGuide);
+  let requested;
+  t.mock.method(globalThis, 'fetch', async path => { requested=path; return {ok:true,json:async()=>otherGuide}; });
+  assert.deepEqual(await loadGuide(other), otherGuide);
+  assert.equal(requested,'/guides/sample-hall.hall-v1.json');
+  assert.equal(validateGuide(guide,other),null);
+});
+test('guide paths reject traversal and malformed version identifiers before fetching', async t => {
+  let calls=0; t.mock.method(globalThis,'fetch',async()=>{calls++;throw new Error('unexpected fetch');});
+  assert.equal(await loadGuide({...venue,venueId:'../other'}),null);
+  assert.equal(await loadGuide({...venue,catalogVersion:'v1?token=x'}),null);
+  assert.equal(calls,0);
+});

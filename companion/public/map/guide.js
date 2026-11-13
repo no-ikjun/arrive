@@ -13,10 +13,11 @@ export function validateGuide(g, venue) {
 }
 export async function loadGuide(venue, signal) {
   if (venue.arrivalGuide) return validateGuide(venue.arrivalGuide, venue);
-  // Only this exact pilot version has a bundled supplement. Never reuse it for a different venue/version.
-  if (venue.venueId !== 'gist-oryong-demo' || venue.catalogVersion !== 'oryong-demo-v2') return null;
+  // Each venue/version may supply its own supplement; there is no default venue fallback.
+  const id = /^[A-Za-z0-9_-]{1,100}$/;
+  if (!id.test(venue.venueId) || !id.test(venue.catalogVersion)) return null;
   try {
-    const res = await fetch('/guides/gist-oryong-demo.oryong-demo-v2.json', { signal });
+    const res = await fetch(`/guides/${venue.venueId}.${venue.catalogVersion}.json`, { signal });
     return res.ok ? validateGuide(await res.json(), venue) : null;
   } catch { return null; }
 }

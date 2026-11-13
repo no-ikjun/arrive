@@ -24,6 +24,7 @@ function forget(title, message) {
 }
 function render(s, v) {
   $('empty').hidden = true; $('visit').hidden = false;
+  measureSheet();
   text('venue', v.name); text('headline', copy[s.stage][0]); text('description', copy[s.stage][1]);
   const demo = s.dataMode === 'DEMO' || v.verification !== 'VERIFIED';
   text('mode', demo ? '시연 장소' : '방문 안내');
@@ -34,7 +35,7 @@ function render(s, v) {
   text('entrance-instructions', s.stage === 'CANCELLED' ? '종료된 방문의 위치 정보예요.' : guide?.entrance.instructions ?? '만남 장소와 건물 입구는 다를 수 있어요. 현장 표지판을 확인하세요.');
   $('walking-guide').hidden = s.stage === 'CANCELLED';
   text('entrance-status', guide?.entrance.verification === 'VERIFIED' ? '현장 확인' : guide ? '추정 위치' : '미등록');
-  text('entrance-estimate', guide?.entrance.verification === 'ESTIMATED' ? '지도 표시는 광장 쪽 입구의 추정 위치예요. 정확한 문 위치는 현장에서 확인하세요.' : '');
+  text('entrance-estimate', guide?.entrance.verification === 'ESTIMATED' ? '지도 표시는 이 입구의 추정 위치예요. 정확한 문 위치는 현장에서 확인하세요.' : '');
   const link = guide && s.stage !== 'CANCELLED' ? externalMapUrl(guide.entrance) : null;
   $('entrance-map-link').hidden = !link;
   if (link) $('entrance-map-link').href = link; else $('entrance-map-link').removeAttribute('href');
@@ -48,7 +49,7 @@ function render(s, v) {
   if (hasImage && $('entrance-image').getAttribute('src') !== image) $('entrance-image').src = image;
   else if (!hasImage) $('entrance-image').removeAttribute('src');
   try {
-    mapView ??= createArrivalMap($('map'), { onStatus: message => text('map-status', message) });
+    mapView ??= createArrivalMap($('map'), { onStatus: message => text('map-status', message), getPadding: mapPadding });
     mapView.render(v, guide, s);
   } catch { text('map-status', '지도를 표시하지 못했어요. 아래 입구 설명을 확인하세요.'); }
   const parked = ['WALKING_TO_MEETING', 'REUNITED'].includes(s.stage);
@@ -62,6 +63,7 @@ function render(s, v) {
   text('notice', v.notice);
   text('updated', `운전자 상태 변경 · ${new Date(s.updatedAt).toLocaleString('ko-KR')}`);
   text('expiry', `공유 종료 예정 · ${new Date(s.expiresAt).toLocaleString('ko-KR')}`);
+  requestAnimationFrame(() => { measureSheet(); });
 
 }
 async function get(path, signal, auth = false) {
@@ -96,6 +98,38 @@ async function poll() {
     if (!stopped && !document.hidden) timer = setTimeout(poll, wait);
   }
 }
+// The map fills the viewport. Fit public places into the area not covered by the sheet.
+function mapPadding() {
+  const w = innerWidth, h = innerHeight;
+  if (w >= 900) return { paddingTopLeft: [470, 80], paddingBottomRight: [80, 70] };
+  if (h <= 550) return { paddingTopLeft: [340, 90], paddingBottomRight: [60, 50] };
+  const height = $('arrival-sheet').getBoundingClientRect().height;
+  return { paddingTopLeft: [56, 168], paddingBottomRight: [72, Math.min(height + 74, h - 270)] };
+}
+let sheetFrame = 0, measuredHeight = 0;
+function measureSheet() {
+  const height = Math.round($('arrival-sheet').getBoundingClientRect().height);
+  document.documentElement.style.setProperty('--sheet-height', `${height}px`);
+  if (height !== measuredHeight) {
+    measuredHeight = height;
+    if (!$('arrival-sheet').classList.contains('expanded')) {
+      cancelAnimationFrame(sheetFrame); sheetFrame = requestAnimationFrame(() => mapView?.resize());
+    }
+  }
+}
+function toggleSheet() {
+  const expanded = !$('arrival-sheet').classList.contains('expanded');
+  $('arrival-sheet').classList.toggle('expanded', expanded);
+  $('sheet-details').hidden = !expanded;
+  $('sheet-toggle').setAttribute('aria-expanded', String(expanded));
+  text('sheet-toggle-label', expanded ? '안내 접기' : '안내 펼치기');
+  if (!expanded) $('arrival-sheet').scrollTop = 0;
+  measureSheet();
+}
+$('sheet-toggle').addEventListener('click', toggleSheet);
+$('arrival-sheet').addEventListener('keydown', e => { if (e.key === 'Escape' && $('arrival-sheet').classList.contains('expanded')) { toggleSheet(); $('sheet-toggle').focus(); } });
+new ResizeObserver(measureSheet).observe($('arrival-sheet'));
+window.addEventListener('resize', () => { measureSheet(); mapView?.resize(); });
 $('entrance-image').addEventListener('error', () => { $('entrance-photo').hidden = true; $('photo-pending').hidden = false; text('photo-pending', '입구 사진을 불러오지 못했어요. 위의 위치 설명을 확인하세요.'); });
 $('retry').addEventListener('click', poll);
 $('forget').addEventListener('click', () => forget('이 기기에서 카드를 닫았어요', '다시 보려면 차량의 QR을 스캔해 주세요. 다른 동승자의 연결에는 영향을 주지 않아요.'));
@@ -108,6 +142,6 @@ setInterval(() => {
   if (snapshot && Date.parse(snapshot.expiresAt) <= Date.now()) forget('공유 기간이 끝났어요', '운전자에게 새 방문 카드를 요청해 주세요.');
 }, 1000);
 if (token) poll();
-else { empty('차량의 QR을 스캔해 주세요', '운전자가 공유한 링크를 열면, 건물 입구 지도와 운전자의 주차 상황을 확인할 수 있어요.'); status('아직 연결된 방문이 없어요'); $('retry').disabled = true; }
+else { empty('차량의 QR을 스캔해 주세요', '운전자가 보낸 방문 링크를 열면 이번 목적지의 내릴 곳, 들어갈 곳과 주차 상황을 한 지도에서 확인할 수 있어요.'); status('아직 연결된 방문이 없어요'); $('retry').disabled = true; }
 
 window.addEventListener('hashchange', () => { if (location.hash) location.reload(); });

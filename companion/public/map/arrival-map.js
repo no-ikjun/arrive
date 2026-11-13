@@ -1,7 +1,7 @@
 import { coordinate } from './guide.js';
 
 // Only public venue points reach this component: no tokens, session IDs, or live positions.
-export function createArrivalMap(element, { driver = false, onStatus = () => {} } = {}) {
+export function createArrivalMap(element, { driver = false, onStatus = () => {}, getPadding = null } = {}) {
   if (!window.L) throw new Error('Map library unavailable');
   const map = L.map(element, { zoomControl: false, scrollWheelZoom: false, maxZoom: 19, minZoom: 15,
     zoomAnimation: false, fadeAnimation: false, markerZoomAnimation: false });
@@ -19,7 +19,7 @@ export function createArrivalMap(element, { driver = false, onStatus = () => {} 
   tiles.on('load', () => { if (!failures) onStatus(''); });
   const points = L.layerGroup().addTo(map);
   let bounds = null, key = '';
-  function fit() { if (bounds?.isValid()) map.fitBounds(bounds, { paddingTopLeft: driver ? [80, 80] : [56, 76], paddingBottomRight: driver ? [80, 90] : [56, 86], maxZoom: 18, animate: false }); }
+  function fit() { if (bounds?.isValid()) map.fitBounds(bounds, { paddingTopLeft: driver ? [80, 80] : [56, 76], paddingBottomRight: driver ? [80, 90] : [56, 86], ...getPadding?.(), maxZoom: 18, animate: false }); }
   const Fit = L.Control.extend({ options: { position: 'topright' }, onAdd() {
     const button = L.DomUtil.create('button', 'map-fit'); button.type = 'button'; button.textContent = '전체';
     button.setAttribute('aria-label', '모든 장소 보기'); L.DomEvent.disableClickPropagation(button);

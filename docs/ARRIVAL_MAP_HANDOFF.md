@@ -24,7 +24,7 @@
 
 보충 데이터 원본: `companion/public/guides/gist-oryong-demo.oryong-demo-v2.json`.
 
-동승자 웹은 venueId/catalogVersion이 정확히 일치할 때만 보충 파일을 사용한다. 다른 장소/버전이면 입구 미등록 상태를 표시한다. 서버가 `arrivalGuide`를 제공하면 이를 우선하며 잘못된 데이터를 다른 장소의 정보로 대체하지 않는다.
+동승자 웹은 `/guides/{venueId}.{catalogVersion}.json`으로 장소별 보충 파일을 읽고 venueId/catalogVersion이 정확히 일치할 때만 사용한다. 다른 장소/버전이면 입구 미등록 상태를 표시한다. 서버가 `arrivalGuide`를 제공하면 이를 우선하며 잘못된 데이터를 다른 장소의 정보로 대체하지 않는다.
 
 Android는 Gradle `prepareArrivalMapAssets`로 같은 map/guide 디렉터리와 기존 카탈로그를 패키징한다. Android의 원격 장소 선택은 아직 미구현이므로 현재 한 장소만 지원한다.
 
@@ -57,3 +57,12 @@ Android는 Gradle `prepareArrivalMapAssets`로 같은 map/guide 디렉터리와 
 - Cloudflare Pages: 기존 설정 그대로, public 정적 파일 변경 배포. 빌드 명령 변경 불필요. Android는 APK 재빌드/설치 필요.
 
 참고: https://operations.osmfoundation.org/policies/tiles/ · https://apis.map.kakao.com/web/guide/#routeurl
+
+
+## 2026-11-14 전체 지도 화면
+
+- 동승자 웹은 전체 화면 지도를 기본으로, 상단에 ‘이번 목적지’, 하단에 입구·운전자 상태·지도 앱 열기를 표시한다. 자세한 설명은 하단 패널 펼치기로 제공한다.
+- 화면 자체에 오룡관 명칭/광장 방향을 고정하지 않는다. 장소와 입구 명칭, 안내 문구, 좌표는 현재 방문의 카탈로그/arrivalGuide에서 가져온다.
+- 장소 선택은 공유 방문에 종속된다. 동승자가 임의로 다른 목적지로 바꾸는 검색/선택 기능은 제공하지 않는다.
+- 장소별 보충 파일의 경로를 일반화했으며, 원격 arrivalGuide가 있는 임의의 장소도 같은 화면을 사용한다. 확인용 가상 컨벤션센터 데이터로 별도 UI 테스트를 수행하고 공개 카탈로그에는 등록하지 않는다.
+- 실제 공개된 장소 데이터는 여전히 오룡관 한 곳이다. 신규 장소 추가에는 검증된 카탈로그/입구 데이터 등록이 필요하다.

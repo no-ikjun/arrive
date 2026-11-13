@@ -1,33 +1,34 @@
 <!doctype html>
 <html lang="ko"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f5f5f7"><meta name="referrer" content="strict-origin-when-cross-origin">
-<title>arrive · 건물 입구 안내</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#eef0f2"><meta name="referrer" content="strict-origin-when-cross-origin">
+<title>arrive · 도착 안내</title>
 <link rel="icon" type="image/png" href="/brand/icon.png"><link rel="apple-touch-icon" href="/brand/icon.png">
 <link rel="stylesheet" href="/map/vendor/leaflet.css"><link rel="stylesheet" href="/map/map.css"><link rel="stylesheet" href="/style.css">
 <script src="/map/vendor/leaflet.js"></script><script type="module" src="/app.js"></script>
 </head><body>
-<header><a href="/" aria-label="arrive 홈" class="brand"><img src="/brand/logo.png" alt="arrive" width="120" height="40"></a><span class="header-label">동승자 안내</span></header>
+<header class="destination-bar"><a href="/" aria-label="arrive 홈" class="brand"><img src="/brand/logo.png" alt="arrive" width="90" height="30"></a><div class="destination"><span class="eyebrow">이번 목적지</span><strong id="venue">공유된 방문 안내</strong></div><button id="retry" class="refresh" type="button" aria-label="방문 상태 새로고침" title="새로고침">↻</button></header>
 <main>
-<div class="connection" role="status"><span id="connection-dot" class="dot"></span><span id="connection">공유 링크 확인 중</span><button id="retry" type="button" aria-label="방문 상태 새로고침">새로고침</button></div>
-<section id="empty" class="empty"><img class="empty-symbol" src="/brand/symbol.png" alt="" width="64" height="64"><p class="eyebrow">도착, 그다음까지.</p><h1 id="empty-title">방문을 불러오고 있어요</h1><p id="empty-text">잠시만 기다려 주세요.</p><div class="empty-foot">내릴 곳 · 건물 입구 · 운전자의 주차 상태</div></section>
+<div class="connection" role="status"><span id="connection-dot" class="dot"></span><span id="connection">공유 링크 확인 중</span></div>
+<section id="empty" class="empty"><img class="empty-symbol" src="/brand/symbol.png" alt="" width="64" height="64"><p class="eyebrow">처음 가는 곳도, 도착은 편하게.</p><h1 id="empty-title">방문을 불러오고 있어요</h1><p id="empty-text">잠시만 기다려 주세요.</p><div class="empty-foot"><span>내릴 곳</span><span>들어갈 곳</span><span>주차한 곳</span></div></section>
 <div id="visit" hidden>
-<div class="visit-heading"><span id="venue"></span><span id="mode" class="pill">시연 장소</span></div>
-<div class="layout">
-<section class="arrival" aria-labelledby="arrival-title">
-<p class="eyebrow">내가 갈 곳</p><h1 id="arrival-title"></h1><p id="arrival-description" class="arrival-description"></p>
-<div id="map" class="arrival-map" role="region" aria-label="하차 지점과 건물 입구 지도"></div><p id="map-status" class="map-status" role="status"></p>
-<div class="map-legend"><span><i class="legend-key"></i>하차</span><span><i class="legend-key entrance"></i>건물 입구</span><span><i class="legend-key parking-key"></i>주차 후보</span></div>
-<div class="entrance-heading"><div><p class="eyebrow">건물 출입구</p><h2 id="entrance-name"></h2></div><span id="entrance-status" class="pill"></span></div>
-<p id="entrance-instructions"></p>
-<a id="entrance-map-link" class="primary-link" target="_blank" rel="noopener noreferrer" hidden>카카오맵에서 위치 보기 <span aria-hidden="true">↗</span></a>
-<p id="entrance-estimate" class="fine-print"></p>
-</section>
-<div class="status-column">
-<section class="driver-status" aria-labelledby="headline"><p class="eyebrow">운전자 상황</p><h2 id="headline"></h2><p id="description"></p><div class="parking"><span class="parking-icon" aria-hidden="true">P</span><div><span id="parking-label" class="eyebrow">주차 후보</span><h3 id="parking-name"></h3></div></div><p id="parking-instructions"></p><p id="excluded" class="fine-print"></p></section>
-<section id="walking-guide" class="walking" aria-labelledby="walking-title"><h2 id="walking-title">입구까지 이렇게 이동해요</h2><ol id="walking-steps"></ol><p id="access-note" class="fine-print"></p><figure id="entrance-photo" hidden><img id="entrance-image" alt="건물 출입구 현장 사진"><figcaption>입구 현장 모습</figcaption></figure><p id="photo-pending" class="fine-print">입구 사진은 현장 확인 후 추가할 예정이에요.</p></section>
-</div></div>
-<details class="visit-details"><summary>방문 정보<span aria-hidden="true">＋</span></summary><div class="detail-body"><div><h3>먼저 내릴 곳</h3><p id="dropoff-name"></p></div><aside class="notice"><h3 id="notice-title"></h3><p id="notice"></p></aside><p>차량의 실시간 위치, 빈 주차면, 도보 도착 예상 시간은 제공하지 않아요.</p></div></details>
-<p class="demo-note" id="demo-note">시연용 추정 위치 · 실제 이동은 현장 안내를 따라 주세요.</p>
+<div id="map" class="arrival-map" role="region" aria-label="이번 목적지의 하차 지점과 입구 지도"></div>
+<p id="map-status" class="map-status" role="status"></p>
+<section id="arrival-sheet" class="arrival-sheet" aria-label="이번 방문 안내">
+<button id="sheet-toggle" class="sheet-toggle" type="button" aria-expanded="false" aria-controls="sheet-details"><span class="sheet-handle" aria-hidden="true"></span><span id="sheet-toggle-label">안내 펼치기</span><span class="chevron" aria-hidden="true">⌃</span></button>
+<div class="sheet-summary">
+<p id="arrival-title" class="action-label"></p>
+<div class="entrance-heading"><h1 id="entrance-name"></h1><span id="entrance-status" class="pill"></span></div>
+<div class="driver-glance"><span class="driver-dot" aria-hidden="true"></span><span id="headline"></span><span class="glance-separator" aria-hidden="true">·</span><span id="parking-name"></span></div>
+<a id="entrance-map-link" class="primary-link" target="_blank" rel="noopener noreferrer" hidden>지도 앱에서 입구 보기 <span aria-hidden="true">↗</span></a>
+</div>
+<div id="sheet-details" class="sheet-details" hidden>
+<section class="entrance-detail"><p id="arrival-description"></p><p id="entrance-instructions"></p><p id="entrance-estimate" class="fine-print"></p></section>
+<section id="walking-guide" class="walking" aria-labelledby="walking-title"><h2 id="walking-title">입구까지 이동 안내</h2><ol id="walking-steps"></ol><p id="access-note" class="fine-print"></p><figure id="entrance-photo" hidden><img id="entrance-image" alt="이번 목적지의 출입구 현장 사진"><figcaption>입구 현장 모습</figcaption></figure><p id="photo-pending" class="fine-print">이 입구의 사진은 아직 등록되지 않았어요.</p></section>
+<section class="parking-detail"><h2>운전자 상황</h2><p id="description"></p><span id="parking-label" class="eyebrow"></span><p id="parking-instructions"></p><p id="excluded" class="fine-print"></p></section>
+<details class="visit-details"><summary>장소 정보<span aria-hidden="true">＋</span></summary><div class="detail-body"><span id="mode" class="pill"></span><div><h3>먼저 내릴 곳</h3><p id="dropoff-name"></p></div><aside class="notice"><h3 id="notice-title"></h3><p id="notice"></p></aside><p>차량의 실시간 위치와 빈 주차면 정보는 제공하지 않아요.</p></div></details>
+<p class="demo-note" id="demo-note">현재 방문은 시연용 추정 위치를 사용해요. 실제 이동은 현장 안내를 따라 주세요.</p>
 <footer><div><p id="updated"></p><p id="expiry"></p></div><button id="forget" type="button">이 기기에서 닫기</button></footer>
+</div>
+</section>
 </div><noscript>방문 정보를 보려면 브라우저의 JavaScript를 켜 주세요.</noscript>
 </main></body></html>

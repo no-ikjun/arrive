@@ -20,7 +20,6 @@ assets.set('/map/arrival-map.js', ['map/arrival-map.js', 'text/javascript; chars
 assets.set('/map/vendor/leaflet.js', ['map/vendor/leaflet.js', 'text/javascript; charset=utf-8']);
 assets.set('/map/vendor/LICENSE', ['map/vendor/LICENSE', 'text/plain; charset=utf-8']);
 assets.set('/map/vendor/leaflet.css', ['map/vendor/leaflet.css', 'text/css; charset=utf-8']);
-assets.set('/guides/gist-oryong-demo.oryong-demo-v2.json', ['guides/gist-oryong-demo.oryong-demo-v2.json', 'application/json; charset=utf-8']);
 export function createServer(apiBase = 'http://127.0.0.1:8080') {
   const base = new URL(apiBase);
   if (!['http:', 'https:'].includes(base.protocol) || base.username || base.password || base.search || base.hash) throw new Error('Invalid API_BASE_URL');
@@ -52,9 +51,11 @@ export function createServer(apiBase = 'http://127.0.0.1:8080') {
       }
       if (req.method !== 'GET' && req.method !== 'HEAD') return send(405, '{"code":"READ_ONLY"}');
       if (path.pathname === '/favicon.ico') return send(204, '');
-      const asset = assets.get(path.pathname);
+      const guidePath = /^\/guides\/[A-Za-z0-9_-]{1,100}\.[A-Za-z0-9_-]{1,100}\.json$/.test(path.pathname);
+      const asset = assets.get(path.pathname) ?? (guidePath ? [path.pathname.slice(1), 'application/json; charset=utf-8'] : null);
       if (!asset) return send(404, '{"code":"NOT_FOUND"}');
-      const data = await readFile(new URL('./public/' + asset[0], import.meta.url));
+      const data = await readFile(new URL('./public/' + asset[0], import.meta.url)).catch(error => { if (error.code === 'ENOENT') return null; throw error; });
+      if (data === null) return send(404, '{"code":"NOT_FOUND"}');
       return send(200, req.method === 'HEAD' ? '' : data, asset[1]);
     } catch {
       // Do not log request URLs, bearer tokens, or upstream response bodies.
