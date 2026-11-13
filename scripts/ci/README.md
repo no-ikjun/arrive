@@ -19,3 +19,9 @@ Database schema changes require a separate reviewed procedure. arrive releases w
 Inspect deployment results on the server at `/var/lib/lightsail-deploy/arrive/latest.json` (successful digest and commit), per-run directories (backups and results), and `journalctl -u lightsail-deploy-arrive-<run-id>-<attempt>`. These are root-restricted; do not upload their DB backups to GitHub. `kubectl` can show the live image and `lightsail-infra/source-revision` annotation. The actual deployed digest is authoritative; initial infra manifests must be refreshed before any full re-apply.
 
 The host helper source and recovery instructions are maintained in `lightsail-infra/k3s/ci/`.
+
+## Initial verification (2026-11-14 KST)
+
+The first [manual Actions release](https://github.com/no-ikjun/arrive/actions/runs/43457042428) passed validation, image publication, host preflight and production deployment. The app's 43 tests passed. A session created before deployment remained readable with both owner/share authentication afterward; state updates, idempotent retries and stale-revision rejection were verified against the new Pod.
+
+For ordinary releases, push backend/contracts/deploy-helper changes to main. For a button release, select main in Run workflow. During the short Recreate replacement, the API returns maintenance responses; schema changes need the separate procedure above.
