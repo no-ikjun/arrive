@@ -23,9 +23,9 @@ import com.arrivetogether.domain.*
 import java.util.Locale
 import kotlin.math.cos
 
-private val MapMint = Color(0xFFA9F3D2)
-private val MapMuted = Color(0xFFB5C4D3)
-private val MapAmber = Color(0xFFFFD392)
+private val MapActive = ArriveInk
+private val MapMuted = ArriveMuted
+private val MapNote = ArriveWarning
 
 internal fun coordinateLabel(place: Place): String = place.coordinate?.let {
     String.format(Locale.US, "%.5f, %.5f", it.latitude, it.longitude)
@@ -43,13 +43,13 @@ internal fun SiteLocationsDialog(trip: Trip, onDismiss: () -> Unit) {
     }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.padding(16.dp).widthIn(max = 760.dp).fillMaxWidth().fillMaxHeight(.94f),
-            shape = RoundedCornerShape(24.dp), color = Color(0xFF1A2939)) {
+            shape = RoundedCornerShape(12.dp), color = ArrivePanel) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("장소 위치", fontSize = 23.sp, fontWeight = FontWeight.Bold)
-                    TextButton(onClick = onDismiss) { Text("닫기") }
+                    Text("장소 배치도", fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                    DriverButton("닫기", R.drawable.ic_close, onClick = onDismiss)
                 }
-                Text("위성사진에서 추정한 위치 · 실제 길안내 없음", color = MapAmber, fontSize = 14.sp)
+                Text("위성사진에서 추정한 위치 · 실제 길안내 없음", color = MapNote, fontSize = 14.sp)
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     SitePointPlot(places, labels, selectedId, trip.excludedParkingIds)
                     Text("북쪽 ↑ · 위치 배치도예요. 도로와 이동 경로는 표시하지 않아요.", color = MapMuted, fontSize = 13.sp)
@@ -60,15 +60,15 @@ internal fun SiteLocationsDialog(trip: Trip, onDismiss: () -> Unit) {
                             place.id == OryongDemo.meeting.id -> "주차 장소가 바뀌어도 유지"
                             else -> null
                         }
-                        Column(Modifier.fillMaxWidth().background(Color(0xFF101B28), RoundedCornerShape(12.dp)).padding(14.dp),
+                        Column(Modifier.fillMaxWidth().background(ArriveBackground, RoundedCornerShape(12.dp)).padding(14.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("${labels[index]} · ${place.name}", fontWeight = FontWeight.SemiBold)
-                            state?.let { Text(it, color = if (place.id == selectedId) MapMint else MapMuted, fontSize = 13.sp) }
-                            Text(coordinateLabel(place), color = MapMint, fontSize = 14.sp)
+                            state?.let { Text(it, color = if (place.id == selectedId) MapActive else MapMuted, fontSize = 13.sp) }
+                            Text(coordinateLabel(place), color = MapActive, fontSize = 14.sp)
                             Text(place.description, color = MapMuted, fontSize = 13.sp)
                         }
                     }
-                    Text("주차 표시는 구역 대표점이에요. 차량 진입구와 이용 조건은 현장 확인이 필요해요.", color = MapAmber, fontSize = 13.sp)
+                    Text("주차 표시는 구역 대표점이에요. 차량 진입구와 이용 조건은 현장 확인이 필요해요.", color = MapNote, fontSize = 13.sp)
                 }
             }
         }
@@ -90,7 +90,7 @@ private fun SitePointPlot(places: List<Place>, labels: List<String>, selectedId:
     val valid = points.filterNotNull()
     val left = valid.minOf { it.x }; val right = valid.maxOf { it.x }
     val top = valid.minOf { it.y }; val bottom = valid.maxOf { it.y }
-    Canvas(Modifier.fillMaxWidth().height(260.dp).background(Color(0xFF101B28), RoundedCornerShape(16.dp))
+    Canvas(Modifier.fillMaxWidth().height(260.dp).background(ArriveBackground, RoundedCornerShape(16.dp))
         .semantics { contentDescription = "하차 지점, 고정 만남 장소, 주차장 네 곳의 좌표 기반 배치도. 북쪽이 위이며 경로 안내가 아닙니다." }) {
         val padding = 40.dp.toPx()
         val scale = minOf((size.width - padding * 2) / (right - left).coerceAtLeast(1f),
@@ -105,15 +105,15 @@ private fun SitePointPlot(places: List<Place>, labels: List<String>, selectedId:
                 size.height / 2 + (point.y - (top + bottom) / 2) * scale)
             val color = when {
                 place.id in excluded -> Color(0xFF647487)
-                place.id == OryongDemo.meeting.id -> MapMint
-                place.id == OryongDemo.dropoff.id -> MapAmber
-                else -> Color(0xFF9CBFFF)
+                place.id == OryongDemo.meeting.id -> MapActive
+                place.id == OryongDemo.dropoff.id -> MapNote
+                else -> Color(0xFF707883)
             }
             if (place.id == selectedId) drawCircle(color.copy(alpha = .25f), 16.dp.toPx(), screen)
             drawCircle(color, 7.dp.toPx(), screen)
-            paint.color = android.graphics.Color.WHITE
+            paint.color = android.graphics.Color.rgb(24, 26, 30)
             // The meeting and dropoff are close: put their labels on opposite sides.
-            val labelY = if (place.id == OryongDemo.meeting.id) screen.y + 24.dp.toPx() else screen.y - 14.dp.toPx()
+            val labelY = if (place.id == OryongDemo.meeting.id || index == 2) screen.y + 24.dp.toPx() else screen.y - 14.dp.toPx()
             drawContext.canvas.nativeCanvas.drawText(labels[index], screen.x, labelY, paint)
         }
     }

@@ -40,6 +40,7 @@ val companionBaseUrl = publicAddress("ARRIVAL_COMPANION_BASE_URL", "")
 android {
     namespace = "com.arrivetogether.app"
     compileSdk = 35
+    useLibrary("android.car", false)
     defaultConfig {
         applicationId = "com.arrivetogether.app"
         minSdk = 28
@@ -58,6 +59,10 @@ android {
 }
 dependencies {
     implementation(project(":domain"))
+    implementation("com.google.zxing:core:3.5.3")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
+    implementation("ai.pleos.playground:NaviHelper:3.0.5")
+    implementation("ai.pleos.playground:FusedLocation:1.1.3")
     implementation(platform("androidx.compose:compose-bom:2024.12.01"))
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.compose.ui:ui")
@@ -67,3 +72,14 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
 
+
+// Bundle the same public map and entrance guide used by Cloudflare Pages; no remote app scripts.
+val arrivalMapAssetDir = layout.buildDirectory.dir("generated/arrivalMapAssets")
+val prepareArrivalMapAssets by tasks.registering(Sync::class) {
+    from(rootProject.file("companion/public/map")) { into("map") }
+    from(rootProject.file("companion/public/guides")) { into("guides") }
+    from(rootProject.file("contracts/oryong-demo.json")) { into("catalog") }
+    into(arrivalMapAssetDir)
+}
+android.sourceSets.getByName("main").assets.srcDir(arrivalMapAssetDir)
+tasks.named("preBuild").configure { dependsOn(prepareArrivalMapAssets) }

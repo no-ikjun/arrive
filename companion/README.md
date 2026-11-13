@@ -1,6 +1,6 @@
 # 동승자 도착 카드
 
-별도 설치 없이 QR로 여는 읽기 전용 모바일 웹. 프레임워크/런타임 npm 의존성 없이 Node.js 22+에서 실행합니다.
+별도 설치 없이 QR로 여는 모바일 도착 안내. 동승자 링크는 조회 전용이며, 주차 후 운전자 휴대폰 연결은 별도 권한으로 합류 확인만 허용합니다. 프레임워크/런타임 npm 의존성 없이 Node.js 22+에서 실행합니다.
 
 ```sh
 cd companion
@@ -8,8 +8,8 @@ API_BASE_URL=http://127.0.0.1:8080 HOST=0.0.0.0 PORT=8081 npm start
 npm test
 ```
 
-`server.mjs`는 정적 파일과 GET 전용 `/api/v1/shared-session`, `/api/v1/venues/:id` 프록시를 제공합니다.
-브라우저는 같은 origin의 `/api`만 호출하며, owner API·POST·DELETE는 이 프록시에서 사용할 수 없습니다.
+`server.mjs`는 정적 파일과 조회용 `/api/v1/shared-session`, `/api/v1/handoff-session`, `/api/v1/venues/:id` 프록시를 제공합니다.
+브라우저는 같은 origin의 `/api`만 호출합니다. 쓰기는 `POST /api/v1/handoff-session/reunion`만 허용하며 owner API·다른 POST·DELETE는 노출하지 않습니다. 서버에서 handoff 토큰 역할을 검증해야 합니다.
 `API_BASE_URL`은 서버 프로세스 환경변수입니다. `.env.example` 파일을 자동으로 읽지 않습니다.
 
 공유 주소 형식은 `https://<web-origin>/#token=<shareToken>`입니다. 토큰은 URL fragment에서 읽고 주소 표시줄에서 제거한 뒤 현재 탭 sessionStorage에 저장합니다. 새로고침 시 연결을 복원하며, 카드 닫기/만료/폐기 시 제거합니다. 인증은 API 요청의 Authorization 헤더로만 전달합니다. 토큰을 쿼리·로그·분석 도구에 보내지 않습니다. 외부 폰트·분석·QR 생성 서버를 사용하지 않습니다.
@@ -31,7 +31,7 @@ npm test
 | Build output directory | `public` |
 | Production 환경변수 `API_BASE_URL` | `https://arrive-api.ikjun.com` |
 
-`npm run build`는 없으며 HTML/CSS/JS는 그대로 제공합니다. Pages가 `functions/api/[[path]].js`를 자동 번들링합니다. 이 함수는 `pages-proxy.mjs`를 통해 허용된 GET API만 중계합니다. 운영 API 주소는 HTTPS origin만 허용하며, 설정 누락은 503, 연결 실패는 502를 반환합니다. `_headers`는 정적 파일에, 함수 내부 헤더는 API 응답에 적용됩니다. API 응답은 캐시하지 않습니다.
+`npm run build`는 없으며 HTML/CSS/JS는 그대로 제공합니다. Pages가 `functions/api/[[path]].js`를 자동 번들링합니다. 이 함수는 `pages-proxy.mjs`를 통해 허용된 조회 API와 합류 확인 POST만 중계합니다. 운영 API 주소는 HTTPS origin만 허용하며, 설정 누락은 503, 연결 실패는 502를 반환합니다. `_headers`는 정적 파일에, 함수 내부 헤더는 API 응답에 적용됩니다. API 응답은 캐시하지 않습니다.
 
 프로젝트 생성 후 Custom domains에 `arrive.ikjun.com`을 등록하고 안내되는 CNAME으로 연결합니다. 웹 도메인을 Lightsail IP로 연결하지 않습니다. API 도메인은 기존 Lightsail을 유지합니다. Preview 배포도 방문 조회가 필요하면 해당 환경의 `API_BASE_URL`을 별도로 지정하세요.
 
@@ -46,7 +46,7 @@ Build watch paths는 `companion/*`를 포함하면 됩니다. `main`에 새 코�
 - 이 폴더의 Dockerfile 또는 Node 프로세스로 실행합니다. 별도 `npm install`/프런트 빌드는 필요 없습니다.
 - `API_BASE_URL`에 이 프로세스에서 접근 가능한 NestJS 주소를 설정합니다. Docker에서 `127.0.0.1`은 별도 백엔드 컨테이너가 아닙니다. 같은 네트워크의 서비스 이름을 사용하세요.
 - 웹 origin의 `/`와 `/api/*`를 모두 이 프로세스로 프록시하고 HTTPS를 적용합니다. 서브디렉터리 호스팅은 현재 지원하지 않습니다.
-- 읽기 전용 프록시를 통하므로 브라우저→NestJS CORS 추가는 필요하지 않습니다. 기존 NestJS CORS 설정은 유지합니다.
+- 같은 origin의 프록시를 통하므로 브라우저→NestJS CORS 추가는 필요하지 않습니다. 기존 NestJS CORS 설정은 유지합니다.
 - Dockerfile은 제공했지만 이미지 빌드·푸시·외부 배포는 이번 작업에서 실행하지 않았습니다.
 - 차량 APK의 `ARRIVAL_COMPANION_BASE_URL`에 HTTPS 웹 origin을 설정하고 다시 빌드합니다.
 
@@ -66,3 +66,7 @@ Cloudflare Fetch는 `redirect: error`를 지원하지 않으므로 `manual`로 �
 동승자 화면은 전체 화면 지도에 목적지 바와 하단 안내 패널을 겹쳐 표시합니다. 패널을 펼치면 이동 설명/사진/방문 정보가 나타납니다. 지도는 패널에 가려지지 않는 영역에 장소를 맞춥니다. 모바일 가로 화면과 데스크톱에서는 안내 패널이 왼쪽에 배치됩니다.
 
 보충 안내 파일 경로는 `/guides/{venueId}.{catalogVersion}.json`입니다. 파일명에는 영문/숫자/밑줄/하이픈 식별자만 사용하며 응답의 장소/버전 일치를 다시 확인합니다. 실제 장소 추가 없이 임의의 장소를 지원한다고 표시하지 않습니다.
+
+## 운전자 휴대폰 이어가기
+
+`#handoff=<token>`은 운전자용 입구 안내와 합류 확인을 제공합니다. 기존 `#token=<shareToken>` 링크에 쓰기 권한을 부여하지 않습니다. 확인 전 사용자 재확인, 동일 키 재시도, 서버 revision 검증을 적용합니다. 새 API 배포가 필요하며 [Claude API 계약](../docs/CLAUDE_CONTINUITY_BACKEND.md)과 [적용 순서·검증 결과](../docs/CONTINUITY_SETUP.md)를 참고하세요.

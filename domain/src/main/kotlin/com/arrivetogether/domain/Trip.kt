@@ -70,7 +70,7 @@ object TripReducer {
     }
 }
 
-/** Future cloud adapter implements this boundary. Local UI does not depend on a server. */
+/** Legacy local visit store; cloud migration reads it once when no shared snapshot exists. */
 interface TripRepository {
     fun load(): Trip?
     fun save(trip: Trip)

@@ -1,6 +1,6 @@
 import { coordinate } from './guide.js';
 
-// Only public venue points reach this component: no tokens, session IDs, or live positions.
+// No tokens or session IDs. Optional vehicle position is accepted only by the native driver map.
 export function createArrivalMap(element, { driver = false, onStatus = () => {}, getPadding = null } = {}) {
   if (!window.L) throw new Error('Map library unavailable');
   const map = L.map(element, { zoomControl: false, scrollWheelZoom: false, maxZoom: 19, minZoom: 15,
@@ -18,6 +18,8 @@ export function createArrivalMap(element, { driver = false, onStatus = () => {},
   tiles.on('tileerror', () => { failures++; onStatus('배경 지도를 불러오지 못했어요. 인터넷 연결을 확인하세요.'); });
   tiles.on('load', () => { if (!failures) onStatus(''); });
   const points = L.layerGroup().addTo(map);
+  let vehicle = null;
+  if (driver) { map.createPane('vehicle'); map.getPane('vehicle').style.zIndex = '625'; }
   let bounds = null, key = '';
   function fit() { if (bounds?.isValid()) map.fitBounds(bounds, { paddingTopLeft: driver ? [80, 80] : [56, 76], paddingBottomRight: driver ? [80, 90] : [56, 86], ...getPadding?.(), maxZoom: 18, animate: false }); }
   const Fit = L.Control.extend({ options: { position: 'topright' }, onAdd() {
@@ -51,6 +53,15 @@ export function createArrivalMap(element, { driver = false, onStatus = () => {},
       });
       // No straight-line "walking route": geometry is not yet field-verified.
       map.invalidateSize(); fit();
+    },
+    updateVehicle(position) {
+      if (!driver) return;
+      if (!coordinate(position)) { if (vehicle) map.removeLayer(vehicle); vehicle = null; return; }
+      const point = [position.latitude, position.longitude];
+      if (vehicle) vehicle.setLatLng(point);
+      else vehicle = L.circleMarker(point, { pane: 'vehicle', radius: 9, color: '#fff', weight: 3, fillColor: '#2764e7', fillOpacity: 1 })
+        .bindTooltip('차량 위치', { direction: 'top' }).addTo(map);
+      // GPS refresh must not steal the viewport from someone inspecting the map.
     },
     resize() { map.invalidateSize(); fit(); },
     destroy() { map.remove(); },

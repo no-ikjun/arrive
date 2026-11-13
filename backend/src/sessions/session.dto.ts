@@ -1,6 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiHideProperty, ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsNotEmpty, IsString, Min } from 'class-validator';
+import { Equals, IsIn, IsInt, IsNotEmpty, IsString, Min } from 'class-validator';
 import { TRIP_EVENTS, type TripEvent } from './trip';
 
 export class CreateSessionDto {
@@ -13,6 +13,20 @@ export class CreateSessionDto {
   @IsString()
   @IsNotEmpty()
   catalogVersion!: string;
+}
+
+export class IssueHandoffDto {
+  @ApiHideProperty()
+  @Equals(undefined)
+  extra?: undefined;
+}
+
+export class ConfirmHandoffReunionDto {
+  @ApiProperty({ minimum: 1 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  expectedRevision!: number;
 }
 
 export class ApplyEventDto {

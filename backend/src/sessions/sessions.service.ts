@@ -1,21 +1,29 @@
 import { randomUUID } from 'crypto';
 import { Injectable } from '@nestjs/common';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { ApiError } from '../common/api-error';
 import { bodyHash } from '../common/body-hash';
 import { isExpired, nowIso, SESSION_TTL_MS } from '../common/time';
 import { DatabaseService, type AppDatabase } from '../persistence/database.service';
-import { idempotencyRecords, sessions, type IdempotencyRecord, type SessionRecord } from '../persistence/schema';
+import {
+  handoffTokens,
+  idempotencyRecords,
+  sessions,
+  type IdempotencyRecord,
+  type SessionRecord,
+} from '../persistence/schema';
 import { TokenService } from '../persistence/token.service';
 import { dataModeFor } from '../venues/venue';
 import { VenuesService } from '../venues/venues.service';
 import { errorResult, type HttpResult } from './http-result';
-import { toPublicSession, type PublicSession } from './session.presenter';
+import { toHandoffSession, toPublicSession, type HandoffSession, type PublicSession } from './session.presenter';
 import type { ApplyEventDto, CreateSessionDto } from './session.dto';
 import { applyTripEvent, initialTrip, type TripStage } from './trip';
 
 const CREATE_ENDPOINT = 'POST /v1/sessions';
 const CREATE_OWNER = '';
+const ISSUE_HANDOFF_ENDPOINT = 'POST /v1/sessions/:id/handoffs';
+const CONFIRM_HANDOFF_ENDPOINT = 'POST /v1/handoff-session/reunion';
 
 type Tx = AppDatabase;
 
@@ -102,9 +110,14 @@ export class SessionsService {
         return errorResult(404, 'NOT_FOUND', '세션을 찾을 수 없습니다.');
       }
       const revoked = { code: 'NOT_FOUND', message: '세션이 삭제되었습니다.' };
+      await tx.delete(handoffTokens).where(eq(handoffTokens.sessionId, sessionId));
       await tx.delete(sessions).where(eq(sessions.id, sessionId));
-      await tx.delete(idempotencyRecords)
-        .where(and(eq(idempotencyRecords.sessionId, sessionId), eq(idempotencyRecords.scope, 'event')));
+      await tx.delete(idempotencyRecords).where(
+        and(
+          eq(idempotencyRecords.sessionId, sessionId),
+          inArray(idempotencyRecords.scope, ['event', 'handoff', 'handoff-reunion']),
+        ),
+      );
       await tx.update(idempotencyRecords)
         .set({
           tombstone: 1,
@@ -223,6 +236,213 @@ export class SessionsService {
     });
   }
 
+  issueHandoff(sessionId: string, ownerHash: string, idempotencyKey: string): Promise<HttpResult> {
+    const digest = bodyHash({ sessionId });
+    return this.database.transaction(async (tx) => {
+      const session = await this.lockSession(tx, sessionId);
+      if (!session || !this.tokens.sameHash(session.ownerTokenHash, ownerHash) || isExpired(session.expiresAt)) {
+        return errorResult(404, 'NOT_FOUND', '세션을 찾을 수 없습니다.');
+      }
+      const replay = await this.replay(tx, ownerHash, ISSUE_HANDOFF_ENDPOINT, idempotencyKey, digest);
+      if (replay) return replay;
+      if (session.stage !== 'WALKING_TO_MEETING') {
+        return errorResult(409, 'INVALID_STAGE', '주차 완료 후에만 휴대폰으로 이어갈 수 있어요.');
+      }
+
+      let handoffToken = this.tokens.generate();
+      let tokenHash = this.tokens.hash(handoffToken);
+      while (tokenHash === session.ownerTokenHash || tokenHash === session.shareTokenHash) {
+        handoffToken = this.tokens.generate();
+        tokenHash = this.tokens.hash(handoffToken);
+      }
+      const createdAt = nowIso();
+      await tx.insert(handoffTokens).values({
+        id: randomUUID(),
+        sessionId: session.id,
+        tokenHash,
+        tokenCipher: this.tokens.encrypt(handoffToken),
+        expiresAt: session.expiresAt,
+        createdAt,
+      });
+      const body = {
+        sessionId: session.id,
+        handoffToken,
+        expiresAt: session.expiresAt,
+      };
+      await this.insertIdempotency(tx, {
+        scope: 'handoff',
+        ownerHash,
+        endpoint: ISSUE_HANDOFF_ENDPOINT,
+        idempotencyKey,
+        digest,
+        httpStatus: 201,
+        body,
+        sessionId: session.id,
+        expiresAt: session.expiresAt,
+        tombstone: false,
+      });
+      return { httpStatus: 201, body: asRecord(body) };
+    });
+  }
+
+  async getHandoff(sessionId: string, tokenHash: string): Promise<HandoffSession> {
+    const [token] = await this.database.db
+      .select()
+      .from(handoffTokens)
+      .where(eq(handoffTokens.tokenHash, tokenHash))
+      .limit(1);
+    const [session] = await this.database.db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+    if (!token || !session || token.sessionId !== session.id) {
+      throw new ApiError(404, 'NOT_FOUND', '세션을 찾을 수 없습니다.');
+    }
+    if (isExpired(session.expiresAt) || isExpired(token.expiresAt)) {
+      throw new ApiError(401, 'UNAUTHORIZED', '인증 정보가 만료되었습니다.');
+    }
+    return toHandoffSession(session, session.expiresAt);
+  }
+
+  confirmHandoffReunion(
+    sessionId: string,
+    tokenHash: string,
+    expectedRevision: number,
+    idempotencyKey: string,
+  ): Promise<HttpResult> {
+    const digest = bodyHash({ expectedRevision });
+    return this.database.transaction(async (tx) => {
+      const [token] = await tx
+        .select()
+        .from(handoffTokens)
+        .where(eq(handoffTokens.tokenHash, tokenHash))
+        .limit(1);
+      const session = await this.lockSession(tx, sessionId);
+      if (!token || !session || token.sessionId !== session.id) {
+        return errorResult(404, 'NOT_FOUND', '세션을 찾을 수 없습니다.');
+      }
+      if (isExpired(session.expiresAt) || isExpired(token.expiresAt)) {
+        return errorResult(401, 'UNAUTHORIZED', '인증 정보가 만료되었습니다.');
+      }
+      const replay = await this.replay(tx, tokenHash, CONFIRM_HANDOFF_ENDPOINT, idempotencyKey, digest);
+      if (replay) return replay;
+
+      if (session.stage !== 'WALKING_TO_MEETING') {
+        const rejected = errorResult(409, 'INVALID_STAGE', '현재 단계에서는 합류를 확인할 수 없어요.');
+        await this.insertIdempotency(tx, {
+          scope: 'handoff-reunion',
+          ownerHash: tokenHash,
+          endpoint: CONFIRM_HANDOFF_ENDPOINT,
+          idempotencyKey,
+          digest,
+          httpStatus: rejected.httpStatus,
+          body: rejected.body,
+          sessionId,
+          expiresAt: session.expiresAt,
+          tombstone: false,
+        });
+        return rejected;
+      }
+      if (session.revision !== expectedRevision) {
+        const conflict = errorResult(409, 'REVISION_CONFLICT', '리비전이 일치하지 않습니다.', session.revision);
+        await this.insertIdempotency(tx, {
+          scope: 'handoff-reunion',
+          ownerHash: tokenHash,
+          endpoint: CONFIRM_HANDOFF_ENDPOINT,
+          idempotencyKey,
+          digest,
+          httpStatus: conflict.httpStatus,
+          body: conflict.body,
+          sessionId,
+          expiresAt: session.expiresAt,
+          tombstone: false,
+        });
+        return conflict;
+      }
+
+      const applied = applyTripEvent(this.tripState(session), 'CONFIRM_REUNION', []);
+      if (!applied.ok) {
+        const rejected = errorResult(409, 'INVALID_STAGE', '현재 단계에서는 합류를 확인할 수 없어요.');
+        await this.insertIdempotency(tx, {
+          scope: 'handoff-reunion',
+          ownerHash: tokenHash,
+          endpoint: CONFIRM_HANDOFF_ENDPOINT,
+          idempotencyKey,
+          digest,
+          httpStatus: rejected.httpStatus,
+          body: rejected.body,
+          sessionId,
+          expiresAt: session.expiresAt,
+          tombstone: false,
+        });
+        return rejected;
+      }
+
+      const updatedAt = nowIso();
+      const updated = await tx
+        .update(sessions)
+        .set({
+          stage: applied.state.stage,
+          revision: applied.state.revision,
+          updatedAt,
+        })
+        .where(and(eq(sessions.id, session.id), eq(sessions.revision, expectedRevision)))
+        .returning();
+      if (updated.length === 0) {
+        const [current] = await tx.select().from(sessions).where(eq(sessions.id, session.id)).limit(1);
+        const conflict = errorResult(
+          409,
+          'REVISION_CONFLICT',
+          '리비전이 일치하지 않습니다.',
+          current?.revision,
+        );
+        await this.insertIdempotency(tx, {
+          scope: 'handoff-reunion',
+          ownerHash: tokenHash,
+          endpoint: CONFIRM_HANDOFF_ENDPOINT,
+          idempotencyKey,
+          digest,
+          httpStatus: conflict.httpStatus,
+          body: conflict.body,
+          sessionId,
+          expiresAt: session.expiresAt,
+          tombstone: false,
+        });
+        return conflict;
+      }
+
+      const body = toHandoffSession(
+        { ...session, stage: applied.state.stage, revision: applied.state.revision, updatedAt },
+        session.expiresAt,
+      );
+      await this.insertIdempotency(tx, {
+        scope: 'handoff-reunion',
+        ownerHash: tokenHash,
+        endpoint: CONFIRM_HANDOFF_ENDPOINT,
+        idempotencyKey,
+        digest,
+        httpStatus: 200,
+        body,
+        sessionId,
+        expiresAt: session.expiresAt,
+        tombstone: false,
+      });
+      return { httpStatus: 200, body: asRecord(body) };
+    });
+  }
+
+  private async lockSession(tx: Tx, sessionId: string): Promise<SessionRecord | undefined> {
+    const [session] = await tx.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1).for('update');
+    return session;
+  }
+
+  private tripState(session: SessionRecord) {
+    return {
+      stage: session.stage as TripStage,
+      parkingId: session.parkingId,
+      excludedParkingIds: JSON.parse(session.excludedParkingIds) as string[],
+      meetingPointId: session.meetingPointId,
+      revision: session.revision,
+    };
+  }
+
   private async replay(
     tx: Tx,
     ownerHash: string,
@@ -262,7 +482,7 @@ export class SessionsService {
   private async insertIdempotency(
     tx: Tx,
     input: {
-      scope: 'create' | 'event';
+      scope: 'create' | 'event' | 'handoff' | 'handoff-reunion';
       ownerHash: string;
       endpoint: string;
       idempotencyKey: string;

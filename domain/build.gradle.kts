@@ -33,6 +33,7 @@ val generateOryongCatalog by tasks.registering {
             |package com.arrivetogether.domain
             |
             |object OryongDemo {
+            |    const val name = ${quoted(catalog["name"])}
             |    const val venueId = ${quoted(catalog["venueId"])}
             |    const val catalogVersion = ${quoted(catalog["catalogVersion"])}
             |    const val verification = ${quoted(catalog["verification"])}

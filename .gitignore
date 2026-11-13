@@ -12,3 +12,10 @@ local.properties
 .env.*
 !.env.example
 
+
+.playwright-cli/
+
+# Local validation output can include session QR codes and credentials.
+output/
+__pycache__/
+*.py[cod]

@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { proxyPlan } from './proxy-policy.mjs';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
@@ -10,6 +11,7 @@ const assets = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
   ['/model.js', ['model.js', 'text/javascript; charset=utf-8']],
+  ['/handoff.js', ['handoff.js', 'text/javascript; charset=utf-8']],
   ['/style.css', ['style.css', 'text/css; charset=utf-8']],
 ]);
 assets.set('/map/map.css', ['map/map.css', 'text/css; charset=utf-8']);
@@ -31,17 +33,20 @@ export function createServer(apiBase = 'http://127.0.0.1:8080') {
     const send = (status, data, type = 'application/json; charset=utf-8') => { res.writeHead(status, { 'Content-Type': type }); res.end(data); };
     try {
       const path = new URL(req.url, 'http://companion.local');
-      // Only the two read endpoints are exposed; no owner route, arbitrary proxy, or token query.
+      // Narrow allowlist: reads + a scoped handoff confirmation, never owner APIs.
       if (path.pathname.startsWith('/api/')) {
-        if (req.method !== 'GET') return send(405, '{"code":"READ_ONLY"}');
-        if (path.search || !/^\/api\/v1\/(shared-session|venues\/[a-zA-Z0-9_-]+)$/.test(path.pathname)) return send(404, '{"code":"NOT_FOUND"}');
-        const headers = { Accept: 'application/json' };
-        if (path.pathname === '/api/v1/shared-session') {
-          if (!/^Bearer [A-Za-z0-9_-]{43,256}$/.test(req.headers.authorization ?? '')) return send(401, '{"code":"UNAUTHORIZED"}');
-          headers.Authorization = req.headers.authorization;
+        let body = '';
+        if (req.method === 'POST') {
+          let length = 0;
+          for await (const chunk of req) { length += chunk.length; if (length > 1024) return send(400, '{"code":"INVALID_BODY"}'); body += chunk.toString(); }
         }
+        const origin = `http://${req.headers.host}`;
+        const url = new URL(req.url, origin);
+        const headers = new Headers(Object.entries(req.headers).filter(([,v]) => typeof v === 'string'));
+        const plan = proxyPlan(req.method, url, headers, body);
+        if (plan.status) return send(plan.status, JSON.stringify({ code: plan.code }));
         const upstream = await fetch(base.href.replace(/\/$/, '') + path.pathname.slice(4), {
-          headers, redirect: 'error', signal: AbortSignal.timeout(8000),
+          ...plan, redirect: 'error', signal: AbortSignal.timeout(8000),
         });
         if (upstream.headers.has('retry-after')) res.setHeader('Retry-After', upstream.headers.get('retry-after'));
         const text = await upstream.text();

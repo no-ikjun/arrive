@@ -43,6 +43,7 @@ export function configureApp(app: INestApplication, env: AppEnv): void {
       .setVersion('0.1.0')
       .addBearerAuth({ type: 'http', scheme: 'bearer' }, 'ownerBearer')
       .addBearerAuth({ type: 'http', scheme: 'bearer' }, 'shareBearer')
+      .addBearerAuth({ type: 'http', scheme: 'bearer' }, 'handoffBearer')
       .build(),
   );
   SwaggerModule.setup('docs', app, document);

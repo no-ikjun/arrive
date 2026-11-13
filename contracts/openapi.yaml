@@ -123,7 +123,7 @@ paths:
       operationId: deleteSession
       security: [{ownerBearer: []}]
       responses:
-        '204': {description: Session deleted and both capabilities revoked; creation key cannot resurrect it}
+        '204': {description: Session deleted and owner, share, and handoff capabilities revoked; creation key cannot resurrect it}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
   /v1/sessions/{sessionId}/events:
@@ -161,6 +161,95 @@ paths:
         '409': {$ref: '#/components/responses/Conflict'}
         '429': {$ref: '#/components/responses/RateLimited'}
         '500': {$ref: '#/components/responses/CatalogUnavailable'}
+  /v1/sessions/{sessionId}/handoffs:
+    parameters:
+      - {$ref: '#/components/parameters/SessionId'}
+    post:
+      operationId: issueHandoff
+      security: [{ownerBearer: []}]
+      description: >-
+        Issues a phone handoff token after the visit is WALKING_TO_MEETING.
+        Only the owner token is accepted. The same owner, session, and Idempotency-Key
+        returns the original 201 body. The handoff token can only read this visit and confirm reunion.
+      parameters:
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+      responses:
+        '201':
+          description: Handoff token bound to the existing visit. Expires with the visit.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [sessionId, handoffToken, expiresAt]
+                properties:
+                  sessionId: {type: string, format: uuid}
+                  handoffToken:
+                    type: string
+                    minLength: 43
+                    maxLength: 256
+                    pattern: '^[A-Za-z0-9_-]+$'
+                  expiresAt: {type: string, format: date-time}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+  /v1/handoff-session:
+    get:
+      operationId: getHandoffSession
+      security: [{handoffBearer: []}]
+      description: >-
+        Phone snapshot of the existing visit. The response is the public session
+        plus handoffExpiresAt and capabilities at the top level. CONFIRM_REUNION is
+        present only while the stage is WALKING_TO_MEETING.
+      responses:
+        '200':
+          description: Current handoff snapshot; Cache-Control must be no-store
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/HandoffSession'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+  /v1/handoff-session/reunion:
+    post:
+      operationId: confirmHandoffReunion
+      security: [{handoffBearer: []}]
+      description: >-
+        Confirms reunion from the phone. Only WALKING_TO_MEETING to REUNITED is allowed.
+        An exact retry returns the original success snapshot without incrementing revision,
+        even when expectedRevision is now old. Authentication and expiry are checked before replay.
+      parameters:
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [expectedRevision]
+              properties:
+                expectedRevision: {type: integer, minimum: 1}
+      responses:
+        '200':
+          description: Reunion confirmed. capabilities is empty and stage is REUNITED.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/HandoffSession'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '429': {$ref: '#/components/responses/RateLimited'}
   /v1/shared-session:
     get:
       operationId: getSharedSession
@@ -181,6 +270,10 @@ components:
   securitySchemes:
     ownerBearer: {type: http, scheme: bearer, description: Owner token for exactly one session}
     shareBearer: {type: http, scheme: bearer, description: Read-only token; never valid for owner endpoints}
+    handoffBearer:
+      type: http
+      scheme: bearer
+      description: Phone token for one visit. Read that visit and confirm reunion only.
   parameters:
     SessionId: {name: sessionId, in: path, required: true, schema: {type: string, format: uuid}}
     IdempotencyKey:
@@ -253,6 +346,16 @@ components:
         updatedAt: {type: string, format: date-time}
         expiresAt: {type: string, format: date-time}
         dataMode: {type: string, enum: [DEMO, VERIFIED]}
+    HandoffSession:
+      allOf:
+        - {$ref: '#/components/schemas/Session'}
+        - type: object
+          required: [handoffExpiresAt, capabilities]
+          properties:
+            handoffExpiresAt: {type: string, format: date-time}
+            capabilities:
+              type: array
+              items: {type: string, enum: [CONFIRM_REUNION]}
     Error:
       type: object
       required: [code, message]
@@ -277,7 +380,9 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/Error'}
     Conflict:
-      description: Invalid transition, stale revision, or idempotency key reused with a different body
+      description: >-
+        Invalid transition, invalid handoff stage, stale revision, or idempotency key
+        reused with a different body or visit. Handoff stage failures use INVALID_STAGE.
       content:
         application/json:
           schema: {$ref: '#/components/schemas/Error'}

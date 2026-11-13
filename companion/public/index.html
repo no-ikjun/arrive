@@ -20,6 +20,11 @@
 <div class="entrance-heading"><h1 id="entrance-name"></h1><span id="entrance-status" class="pill"></span></div>
 <div class="driver-glance"><span class="driver-dot" aria-hidden="true"></span><span id="headline"></span><span class="glance-separator" aria-hidden="true">·</span><span id="parking-name"></span></div>
 <a id="entrance-map-link" class="primary-link" target="_blank" rel="noopener noreferrer" hidden>지도 앱에서 입구 보기 <span aria-hidden="true">↗</span></a>
+<section id="phone-actions" class="phone-actions" hidden>
+<p id="phone-instruction">입구 안내를 따라 이동하고, 동승자와 실제로 만난 뒤 확인해 주세요.</p>
+<button id="confirm-reunion" class="primary-link" type="button">합류 확인</button>
+<p id="action-message" role="status"></p>
+</section>
 </div>
 <div id="sheet-details" class="sheet-details" hidden>
 <section class="entrance-detail"><p id="arrival-description"></p><p id="entrance-instructions"></p><p id="entrance-estimate" class="fine-print"></p></section>
@@ -31,4 +36,6 @@
 </div>
 </section>
 </div><noscript>방문 정보를 보려면 브라우저의 JavaScript를 켜 주세요.</noscript>
-</main></body></html>
+</main>
+<dialog id="reunion-dialog" aria-labelledby="reunion-title"><h2 id="reunion-title">동승자와 만났나요?</h2><p>실제로 만난 뒤 확인해 주세요. 이 방문을 함께 도착한 상태로 바꿔요.</p><div class="dialog-actions"><button id="cancel-reunion" type="button">아직이에요</button><button id="send-reunion" type="button">만났어요</button></div></dialog>
+</body></html>

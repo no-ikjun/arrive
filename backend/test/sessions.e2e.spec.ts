@@ -399,6 +399,279 @@ describe('session API', () => {
     expect(badEvent.status).toBe(400);
     expect(badEvent.body.code).toBe('INVALID_REQUEST');
   });
+
+  function issue(id: string, token: string, key = randomUUID(), body: Record<string, unknown> = {}) {
+    return request(server())
+      .post(`/v1/sessions/${id}/handoffs`)
+      .set('Authorization', `Bearer ${token}`)
+      .set('Content-Type', 'application/json')
+      .set('Idempotency-Key', key)
+      .send(body);
+  }
+
+  function handoffGet(token: string) {
+    return request(server()).get('/v1/handoff-session').set('Authorization', `Bearer ${token}`);
+  }
+
+  function reunion(
+    token: string,
+    expectedRevision: number,
+    key = randomUUID(),
+    extra: Record<string, unknown> = {},
+  ) {
+    return request(server())
+      .post('/v1/handoff-session/reunion')
+      .set('Authorization', `Bearer ${token}`)
+      .set('Content-Type', 'application/json')
+      .set('Idempotency-Key', key)
+      .send({ expectedRevision, ...extra });
+  }
+
+  async function park(id: string, owner: string) {
+    await apply(id, owner, 1, 'START').expect(200);
+    await apply(id, owner, 2, 'CONFIRM_DROPOFF').expect(200);
+    const parked = await apply(id, owner, 3, 'CONFIRM_PARKED').expect(200);
+    expect(parked.body).toMatchObject({ stage: 'WALKING_TO_MEETING', revision: 4 });
+    return parked.body as { revision: number; expiresAt: string };
+  }
+
+  it('completes parking handoff and reunion for the driver and companion', async () => {
+    const created = await createSession().expect(201);
+    const id = created.body.session.id as string;
+    const owner = created.body.ownerToken as string;
+    const share = created.body.shareToken as string;
+    await park(id, owner);
+
+    const issued = await issue(id, owner).expect(201);
+    const handoffToken = issued.body.handoffToken as string;
+    expect(issued.body.sessionId).toBe(id);
+    expect(issued.body.expiresAt).toBe(created.body.session.expiresAt);
+    expect(handoffToken).toMatch(/^[A-Za-z0-9_-]{43,256}$/);
+    expect(handoffToken).not.toBe(owner);
+    expect(handoffToken).not.toBe(share);
+    expect(issued.headers['cache-control']).toBe('no-store');
+    expect(Object.keys(issued.body).sort()).toEqual(['expiresAt', 'handoffToken', 'sessionId']);
+
+    const [stored] = await app.get(DatabaseService).execute(
+      'SELECT token_cipher AS cipher, token_hash AS hash FROM handoff_tokens WHERE session_id = $1',
+      [id],
+    );
+    expect(String(stored.cipher).includes(handoffToken)).toBe(false);
+    expect(stored.hash).not.toBe(handoffToken);
+
+    const ownerBefore = await request(server()).get(`/v1/sessions/${id}`).set('Authorization', `Bearer ${owner}`).expect(200);
+    const phone = await handoffGet(handoffToken).expect(200);
+    const { handoffExpiresAt, capabilities, ...rest } = phone.body;
+    expect(rest).toEqual(ownerBefore.body);
+    expect(handoffExpiresAt).toBe(ownerBefore.body.expiresAt);
+    expect(capabilities).toEqual(['CONFIRM_REUNION']);
+    expect(phone.headers['cache-control']).toBe('no-store');
+    expect(JSON.stringify(phone.body)).not.toContain(owner);
+    expect(JSON.stringify(phone.body)).not.toContain(share);
+    expect(JSON.stringify(phone.body)).not.toContain(handoffToken);
+
+    const confirmed = await reunion(handoffToken, 4).expect(200);
+    expect(confirmed.body).toMatchObject({
+      id,
+      stage: 'REUNITED',
+      revision: 5,
+      capabilities: [],
+      handoffExpiresAt: ownerBefore.body.expiresAt,
+      venueId: ownerBefore.body.venueId,
+      catalogVersion: ownerBefore.body.catalogVersion,
+      meetingPointId: ownerBefore.body.meetingPointId,
+      dataMode: 'DEMO',
+    });
+    const ownerAfter = await request(server()).get(`/v1/sessions/${id}`).set('Authorization', `Bearer ${owner}`).expect(200);
+    const sharedAfter = await request(server()).get('/v1/shared-session').set('Authorization', `Bearer ${share}`).expect(200);
+    expect(ownerAfter.body).toMatchObject({ stage: 'REUNITED', revision: 5 });
+    expect(sharedAfter.body).toEqual(ownerAfter.body);
+    const phoneAfter = await handoffGet(handoffToken).expect(200);
+    expect(phoneAfter.body).toEqual(confirmed.body);
+  });
+
+  it('replays the same handoff token for the same issuance key', async () => {
+    const created = await createSession().expect(201);
+    const id = created.body.session.id as string;
+    const owner = created.body.ownerToken as string;
+    await park(id, owner);
+    const key = randomUUID();
+    const first = await issue(id, owner, key).expect(201);
+    const retry = await issue(id, owner, key).expect(201);
+    expect(retry.body).toEqual(first.body);
+    expect(await countHandoffs(app, id)).toBe(1);
+
+    const other = await createSession().expect(201);
+    await park(other.body.session.id, other.body.ownerToken);
+    const conflict = await issue(other.body.session.id, other.body.ownerToken, key);
+    expect(conflict.status).toBe(201);
+    expect(conflict.body.handoffToken).not.toBe(first.body.handoffToken);
+  });
+
+  it('replays reunion without incrementing revision again', async () => {
+    const created = await createSession().expect(201);
+    const id = created.body.session.id as string;
+    const owner = created.body.ownerToken as string;
+    await park(id, owner);
+    const issued = await issue(id, owner).expect(201);
+    const token = issued.body.handoffToken as string;
+    const key = randomUUID();
+    const first = await reunion(token, 4, key).expect(200);
+    const retry = await reunion(token, 4, key).expect(200);
+    expect(retry.body).toEqual(first.body);
+    expect(retry.body.revision).toBe(5);
+    const other = await reunion(token, 4, key);
+    expect(other.body.revision).toBe(5);
+    const changed = await reunion(token, 1, key);
+    expect(changed.status).toBe(409);
+    expect(changed.body.code).toBe('IDEMPOTENCY_CONFLICT');
+    const current = await request(server()).get(`/v1/sessions/${id}`).set('Authorization', `Bearer ${owner}`).expect(200);
+    expect(current.body).toMatchObject({ stage: 'REUNITED', revision: 5 });
+  });
+
+  it('applies one reunion when two clients confirm together', async () => {
+    const created = await createSession().expect(201);
+    const id = created.body.session.id as string;
+    const owner = created.body.ownerToken as string;
+    await park(id, owner);
+    const issued = await issue(id, owner).expect(201);
+    const token = issued.body.handoffToken as string;
+    const [left, right] = await Promise.all([
+      reunion(token, 4, randomUUID()),
+      reunion(token, 4, randomUUID()),
+    ]);
+    const statuses = [left.status, right.status].sort();
+    expect(statuses).toEqual([200, 409]);
+    const winner = left.status === 200 ? left : right;
+    const conflict = left.status === 409 ? left : right;
+    expect(winner.body).toMatchObject({ stage: 'REUNITED', revision: 5, capabilities: [] });
+    expect(conflict.body.code).toBe('INVALID_STAGE');
+    const current = await request(server()).get(`/v1/sessions/${id}`).set('Authorization', `Bearer ${owner}`).expect(200);
+    expect(current.body).toMatchObject({ stage: 'REUNITED', revision: 5 });
+    const phone = await handoffGet(token).expect(200);
+    expect(phone.body).toMatchObject({ stage: 'REUNITED', revision: 5, capabilities: [] });
+  });
+
+  it('rejects share, owner, and other-session tokens on handoff routes', async () => {
+    const created = await createSession().expect(201);
+    const other = await createSession().expect(201);
+    const id = created.body.session.id as string;
+    const owner = created.body.ownerToken as string;
+    const share = created.body.shareToken as string;
+    await park(id, owner);
+    await park(other.body.session.id, other.body.ownerToken);
+    const issued = await issue(id, owner).expect(201);
+    const token = issued.body.handoffToken as string;
+    const otherIssued = await issue(other.body.session.id, other.body.ownerToken).expect(201);
+    const otherToken = otherIssued.body.handoffToken as string;
+
+    const shareIssue = await issue(id, share);
+    expect(shareIssue.status).toBe(401);
+    expect(shareIssue.body.code).toBe('UNAUTHORIZED');
+    const otherIssue = await issue(id, other.body.ownerToken);
+    expect(otherIssue.status).toBe(404);
+    expect(otherIssue.body.code).toBe('NOT_FOUND');
+    const handoffIssue = await issue(id, token);
+    expect(handoffIssue.status).toBe(404);
+
+    expect((await handoffGet(owner)).status).toBe(401);
+    expect((await handoffGet(share)).status).toBe(401);
+    expect((await reunion(owner, 4)).status).toBe(401);
+    expect((await reunion(share, 4)).status).toBe(401);
+    const otherPhone = await handoffGet(otherToken).expect(200);
+    expect(otherPhone.body.id).toBe(other.body.session.id);
+    expect(otherPhone.body.id).not.toBe(id);
+
+    const event = await apply(id, token, 4, 'CANCEL');
+    expect(event.status).toBe(404);
+    const removed = await request(server()).delete(`/v1/sessions/${id}`).set('Authorization', `Bearer ${token}`);
+    expect(removed.status).toBe(404);
+    const shared = await request(server()).get('/v1/shared-session').set('Authorization', `Bearer ${token}`);
+    expect(shared.status).toBe(404);
+    const owned = await request(server()).get(`/v1/sessions/${id}`).set('Authorization', `Bearer ${token}`);
+    expect(owned.status).toBe(404);
+    const still = await request(server()).get(`/v1/sessions/${id}`).set('Authorization', `Bearer ${owner}`).expect(200);
+    expect(still.body).toMatchObject({ stage: 'WALKING_TO_MEETING', revision: 4 });
+  });
+
+  it('rejects handoff routes after delete and expiry', async () => {
+    const deleted = await createSession().expect(201);
+    const deletedId = deleted.body.session.id as string;
+    const deletedOwner = deleted.body.ownerToken as string;
+    await park(deletedId, deletedOwner);
+    const deletedIssue = await issue(deletedId, deletedOwner).expect(201);
+    const deletedToken = deletedIssue.body.handoffToken as string;
+    await request(server()).delete(`/v1/sessions/${deletedId}`).set('Authorization', `Bearer ${deletedOwner}`).expect(204);
+    expect((await issue(deletedId, deletedOwner)).status).toBe(404);
+    expect((await handoffGet(deletedToken)).status).toBe(404);
+    expect((await reunion(deletedToken, 4)).status).toBe(404);
+    expect(await countHandoffs(app, deletedId)).toBe(0);
+
+    const created = await createSession().expect(201);
+    const id = created.body.session.id as string;
+    const owner = created.body.ownerToken as string;
+    await park(id, owner);
+    const issued = await issue(id, owner).expect(201);
+    const token = issued.body.handoffToken as string;
+    const past = '2000-01-01T00:00:00.000Z';
+    await app.get(DatabaseService).execute('UPDATE sessions SET expires_at = $1 WHERE id = $2', [past, id]);
+    await app.get(DatabaseService).execute('UPDATE handoff_tokens SET expires_at = $1 WHERE session_id = $2', [past, id]);
+    await app
+      .get(DatabaseService)
+      .execute('UPDATE idempotency_records SET expires_at = $1 WHERE session_id = $2', [past, id]);
+    expect((await issue(id, owner)).status).toBe(404);
+    expect((await handoffGet(token)).body.code).toBe('UNAUTHORIZED');
+    expect((await handoffGet(token)).status).toBe(401);
+    const expiredReunion = await reunion(token, 4);
+    expect(expiredReunion.status).toBe(401);
+    expect(expiredReunion.body.code).toBe('UNAUTHORIZED');
+
+    await app.get(CleanupService).cleanup();
+    expect(await countWhere(app, 'sessions', id)).toBe(0);
+    expect(await countHandoffs(app, id)).toBe(0);
+  });
+
+  it('rejects early handoff, bad revision, and unknown fields', async () => {
+    const created = await createSession().expect(201);
+    const id = created.body.session.id as string;
+    const owner = created.body.ownerToken as string;
+    const key = randomUUID();
+    const early = await issue(id, owner, key);
+    expect(early.status).toBe(409);
+    expect(early.body.code).toBe('INVALID_STAGE');
+    expect(await countHandoffs(app, id)).toBe(0);
+    expect((await reunion(owner, 1)).status).toBe(401);
+
+    await park(id, owner);
+    const issued = await issue(id, owner, key).expect(201);
+    const token = issued.body.handoffToken as string;
+    const stale = await reunion(token, 1);
+    expect(stale.status).toBe(409);
+    expect(stale.body.code).toBe('REVISION_CONFLICT');
+    expect(stale.body.currentRevision).toBe(4);
+    const unknownIssue = await issue(id, owner, randomUUID(), { note: 'nope' });
+    expect(unknownIssue.status).toBe(400);
+    expect(unknownIssue.body.code).toBe('INVALID_REQUEST');
+    const unknownReunion = await reunion(token, 4, randomUUID(), { note: 'nope' });
+    expect(unknownReunion.status).toBe(400);
+    expect(unknownReunion.body.code).toBe('INVALID_REQUEST');
+    const missingKey = await request(server())
+      .post(`/v1/sessions/${id}/handoffs`)
+      .set('Authorization', `Bearer ${owner}`)
+      .send({});
+    expect(missingKey.status).toBe(400);
+    const current = await request(server()).get(`/v1/sessions/${id}`).set('Authorization', `Bearer ${owner}`).expect(200);
+    expect(current.body).toMatchObject({ stage: 'WALKING_TO_MEETING', revision: 4 });
+
+    await apply(id, owner, 4, 'CANCEL').expect(200);
+    const cancelled = await reunion(token, 5);
+    expect(cancelled.status).toBe(409);
+    expect(cancelled.body.code).toBe('INVALID_STAGE');
+    const phone = await handoffGet(token).expect(200);
+    expect(phone.body).toMatchObject({ stage: 'CANCELLED', capabilities: [] });
+    const after = await request(server()).get(`/v1/sessions/${id}`).set('Authorization', `Bearer ${owner}`).expect(200);
+    expect(after.body.revision).toBe(5);
+  });
 });
 
 describe('persistence and limits', () => {
@@ -438,6 +711,13 @@ describe('persistence and limits', () => {
 
 async function countSessions(app: INestApplication): Promise<number> {
   const [row] = await app.get(DatabaseService).execute('SELECT COUNT(*)::int AS count FROM sessions');
+  return Number(row.count);
+}
+
+async function countHandoffs(app: INestApplication, sessionId: string): Promise<number> {
+  const [row] = await app
+    .get(DatabaseService)
+    .execute('SELECT COUNT(*)::int AS count FROM handoff_tokens WHERE session_id = $1', [sessionId]);
   return Number(row.count);
 }
 

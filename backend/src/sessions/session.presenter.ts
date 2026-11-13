@@ -40,6 +40,14 @@ export class PublicSession {
   dataMode!: 'DEMO' | 'VERIFIED';
 }
 
+export class HandoffSession extends PublicSession {
+  @ApiProperty({ format: 'date-time' })
+  handoffExpiresAt!: string;
+
+  @ApiProperty({ isArray: true, enum: ['CONFIRM_REUNION'] })
+  capabilities!: Array<'CONFIRM_REUNION'>;
+}
+
 export function toPublicSession(record: SessionRecord): PublicSession {
   const excluded = JSON.parse(record.excludedParkingIds) as unknown;
   if (!Array.isArray(excluded) || excluded.some((id) => typeof id !== 'string')) {
@@ -58,5 +66,13 @@ export function toPublicSession(record: SessionRecord): PublicSession {
     updatedAt: record.updatedAt,
     expiresAt: record.expiresAt,
     dataMode: record.dataMode === 'VERIFIED' ? 'VERIFIED' : 'DEMO',
+  };
+}
+
+export function toHandoffSession(record: SessionRecord, handoffExpiresAt: string): HandoffSession {
+  return {
+    ...toPublicSession(record),
+    handoffExpiresAt,
+    capabilities: record.stage === 'WALKING_TO_MEETING' ? ['CONFIRM_REUNION'] : [],
   };
 }

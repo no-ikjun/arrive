@@ -24,8 +24,14 @@ def adb(*command, binary=False):
 
 
 def tree():
-    adb("shell", "uiautomator", "dump", "/sdcard/together-ui.xml")
-    return ET.fromstring(adb("shell", "cat", "/sdcard/together-ui.xml"))
+    # Compose may not expose an accessibility root on the first launch frame.
+    # Never consume a stale XML dump when the new dump failed.
+    for _ in range(6):
+        result = adb("shell", "uiautomator", "dump", "/sdcard/together-ui.xml")
+        if "dumped to:" in result:
+            return ET.fromstring(adb("shell", "cat", "/sdcard/together-ui.xml"))
+        time.sleep(.3)
+    raise AssertionError("UI hierarchy unavailable after launch")
 
 
 def wait_for(label):
@@ -43,9 +49,20 @@ def tap_node(node):
 
 
 def tap(label):
-    root = wait_for(label)
-    node = next(n for n in root.iter("node") if label == n.get("text"))
-    tap_node(node)
+    for _ in range(8):
+        root = tree()
+        node = next((n for n in root.iter("node") if label == n.get("text")), None)
+        if node is not None:
+            tap_node(node)
+            return
+        container = next((n for n in root.iter("node") if n.get("scrollable") == "true"), None)
+        if container is None:
+            time.sleep(.3)
+            continue
+        x1,y1,x2,y2 = map(int, re.findall(r"\d+", container.get("bounds")))
+        x = (x1+x2)//2
+        adb("shell", "input", "swipe", str(x), str(y2-50), str(x), str(y1+50), "250")
+    raise AssertionError("Action not found: " + label)
 
 
 def toggle_restriction():
@@ -58,63 +75,88 @@ def screenshot(name):
     (screens / name).write_bytes(adb("exec-out", "screencap", "-p", binary=True))
 
 
+def assert_actions_visible(*labels):
+    root = tree()
+    parents = {child: parent for parent in root.iter() for child in parent}
+    bounds = []
+    for label in labels:
+        node = next(n for n in root.iter("node") if n.get("text") == label)
+        while node.get("clickable") != "true":
+            node = parents[node]
+        box = tuple(map(int, re.findall(r"\d+", node.get("bounds"))))
+        assert box[3] - box[1] >= 80, (label, box)
+        assert node.get("enabled") == "true", label
+        bounds.append(box)
+    if len(bounds) == 2:
+        bounds.sort()
+        assert bounds[1][0] - bounds[0][2] >= 16, bounds
+    print("PASS visible labeled action buttons: " + ", ".join(labels), flush=True)
+
+
 def reset():
-    tap("처음부터")
+    tap("새 방문")
     tap("새로 시작")
-    wait_for("방문 흐름 시연하기")
+    wait_for("방문 시작")
 
 
+if "android.hardware.type.automotive" in adb("shell", "pm", "list", "features"):
+    parser.error("This local UI smoke requires a dedicated non-Automotive emulator with the simulation switch.")
 adb("shell", "pm", "clear", package)
-adb("shell", "am", "start", "-n", package + "/.MainActivity")
-wait_for("방문 흐름 시연하기")
+adb("shell", "am", "start", "-W", "-n", package + "/.MainActivity")
+wait_for("방문 시작")
+assert_actions_visible("방문 시작")
 screenshot("01-plan.png")
-tap("장소 위치 보기")
+tap("더 보기")
+tap("장소 정보")
 wait_for("북쪽 ↑")
 wait_for("35.22669, 126.83931")
 screenshot("06-site-locations.png")
 tap("닫기")
-tap("방문 흐름 시연하기")
-tap("동승자 하차 확인")
-tap("이곳은 이용할 수 없어요")
-wait_for("오룡관 주차장 2")
-tap("이곳은 이용할 수 없어요")
+tap("방문 시작")
+tap("하차 완료")
+tap("다른 주차장")
+wait_for("주차장 2")
+tap("다른 주차장")
 wait_for("축구장 주차장")
-wait_for("오룡관 주차장 1 입구 옆 만남 지점")
+wait_for("주차장 1 입구 옆")
+assert_actions_visible("다른 주차장", "주차 완료")
 screenshot("02-parking-fallback.png")
 print("PASS fallback keeps meeting point", flush=True)
 
 adb("shell", "am", "force-stop", package)
-adb("shell", "am", "start", "-n", package + "/.MainActivity")
+adb("shell", "am", "start", "-W", "-n", package + "/.MainActivity")
 wait_for("축구장 주차장")
-wait_for("이번 방문에서 제외한 후보 2곳")
+wait_for("다른 주차장")
 print("PASS process restart restores session", flush=True)
 
 toggle_restriction()
-root = wait_for("주행 제한 상태 시연")
-assert not any(n.get("text") == "이곳에 주차했어요" for n in root.iter("node"))
+root = wait_for("정차 후 이용해 주세요")
+assert not any(n.get("text") == "주차 완료" for n in root.iter("node"))
 screenshot("03-restricted.png")
 toggle_restriction()
-tap("이곳에 주차했어요")
-tap("도착 카드 미리보기")
-wait_for("운전자가 주차 완료를 확인했어요")
-wait_for("35.22648, 126.83947")
-screenshot("04-companion-preview.png")
+tap("주차 완료")
+wait_for("주차 완료 · 도보 이동")
+tap("동승자 공유")
+wait_for("동승자 공유")
+screenshot("04-companion-connect.png")
 tap("닫기")
-tap("다시 만났어요")
+tap("만남 완료")
 wait_for("함께 도착했어요")
-print("PASS restriction, companion preview and reunion", flush=True)
+print("PASS restriction, companion connection dialog and reunion", flush=True)
 
 reset()
-tap("방문 흐름 시연하기")
-tap("동승자 하차 확인")
+tap("방문 시작")
+tap("하차 완료")
 for _ in range(4):
-    tap("이곳은 이용할 수 없어요")
-root = wait_for("안내할 주차 후보가 없어요")
-assert not any(n.get("text") == "이곳에 주차했어요" for n in root.iter("node"))
-wait_for("오룡관 주차장 1 입구 옆 만남 지점")
+    tap("다른 주차장")
+root = wait_for("주차 후보 없음")
+assert not any(n.get("text") == "주차 완료" for n in root.iter("node"))
+wait_for("주차장 1 입구 옆")
 screenshot("05-exhausted.png")
-tap("이번 방문 종료")
-wait_for("이번 방문을 종료했어요")
+tap("더 보기")
+tap("방문 종료")
+tap("종료")
+wait_for("방문을 종료했어요")
 print("PASS exhausted candidates and cancellation", flush=True)
 reset()
 print("PASS all Android smoke scenarios", flush=True)

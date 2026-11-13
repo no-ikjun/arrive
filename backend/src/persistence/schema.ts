@@ -26,6 +26,19 @@ export const sessions = pgTable(
   ],
 );
 
+export const handoffTokens = pgTable(
+  'handoff_tokens',
+  {
+    id: text('id').primaryKey(),
+    sessionId: text('session_id').notNull(),
+    tokenHash: text('token_hash').notNull(),
+    tokenCipher: text('token_cipher').notNull(),
+    expiresAt: text('expires_at').notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [uniqueIndex('handoff_tokens_token_hash_unique').on(table.tokenHash)],
+);
+
 export const idempotencyRecords = pgTable(
   'idempotency_records',
   {
@@ -48,4 +61,5 @@ export const idempotencyRecords = pgTable(
 );
 
 export type SessionRecord = typeof sessions.$inferSelect;
+export type HandoffTokenRecord = typeof handoffTokens.$inferSelect;
 export type IdempotencyRecord = typeof idempotencyRecords.$inferSelect;
