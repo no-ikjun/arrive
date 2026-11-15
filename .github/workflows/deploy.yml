@@ -50,7 +50,7 @@ jobs:
   release:
     needs: validate
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    uses: no-ikjun/lightsail-infra/.github/workflows/k3s-release.yml@a8be44ec039b6c56d9df0ebf2c89f435ee05329b
+    uses: no-ikjun/lightsail-infra/.github/workflows/k3s-release.yml@6ca6b41f5d1c970f8c7fe45098ff70071968ff72
     with:
       service: arrive
       production_branch: main
