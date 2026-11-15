@@ -1,104 +1,125 @@
 # arrive
 
-주차할 곳이 없을 때 다음 주차 후보를 제안하고, 동승자의 입장부터 운전자의 합류까지 이어주는 차량 앱과 모바일 웹.
+**주차할 곳이 없을 때 다음 주차 후보를 제안하고, 동승자의 입장부터 운전자의 합류까지 이어주는 차량 앱과 모바일 웹.**
 
-서비스 이름은 **arrive**입니다. 장소는 방문별 정보로 표시하며, 현재 시연 가능한 장소는 GIST 오룡관 한 곳입니다. `assets/`의 원본 로고·아이콘에서 앱과 웹용 리소스를 만들어 사용합니다.
+목적지에 도착했지만 주차할 곳을 찾지 못한 상황을 돕습니다. 운전자는 지도에서 다음 주차 후보를 확인하고 Pleos 기본 내비게이션으로 길안내를 요청합니다. 먼저 내린 동승자는 휴대폰으로 건물 입구와 운전자의 진행 상태를 확인하고, 운전자는 주차 후 휴대폰으로 안내를 이어받아 합류를 확인합니다.
 
-## 공모전 제출·실행
+## 제출 자료
 
-Pleos Connect 2.1.0 ARM64 / Android 14 API 34 / 2560×1440에서 확인했습니다. 빌드와 시연 순서는 아래에 정리했습니다. 최종 영상은 약 2분 30초이며 Pleos 전체 화면의 주차 후보 변경·기본 내비 목적지 전달과 모바일 합류 확인을 담았습니다. 내비의 배경 지도 미표시와 기본 출발 위치는 에뮬레이터의 남은 제한입니다. APK와 시연 영상은 저장소에 포함하지 않고 개인 드라이브 링크로 별도 제출합니다.
+| 자료 | 위치 |
+| --- | --- |
+| 제출용 APK | **[APK 다운로드 링크 입력 예정]** |
+| 소스 코드 | [GitHub · no-ikjun/arrive](https://github.com/no-ikjun/arrive) |
+| 시연 영상 | 개인 드라이브 링크로 별도 제출 · 약 2분 30초, 실제 화면 녹화와 한국어 TTS |
+| 모바일 웹 | [arrive.ikjun.com](https://arrive.ikjun.com) · 방문별 QR 링크로 접속 |
 
-## 운전자 화면
+<!-- APK 업로드 후 위의 자리표시자를 [APK 다운로드](실제 다운로드 URL)로 교체하세요. -->
 
-흰색·회색·검정 중심으로 현재 목적지와 큰 확인 버튼을 표시하고 차량 오른쪽에는 하차 지점·주차 후보·건물 입구 지도를 보여줍니다. 내비 사용 중에도 활성 방문의 위치/변속 관측을 유지하며 알림함에서 방문으로 복귀할 수 있습니다. 주차 완료 후 QR로 운전자 휴대폰에 입구 안내와 합류 확인을 넘깁니다. 동승자는 별도 조회 전용 링크로 건물 입구와 운전자 진행 상태를 봅니다. 주행 제한 중에는 조작을 제한합니다.
+APK와 영상은 저장소에 포함하지 않습니다. 제출용 APK의 로컬 보관 위치는 `output/submission/arrive_arrive_release.apk`이며, 이 경로는 Git으로 추적하지 않습니다. 직접 빌드한 debug APK는 `app/build/outputs/apk/debug/app-debug.apk`에 생성됩니다.
 
-‘자리 없어요’를 누르면 이미 확인한 주차장을 제외하고 다음 후보를 자동 선택합니다. 추천 카드와 지도에서 목적지를 확인한 뒤 ‘이곳으로 길안내’로 이어집니다. 현재는 등록 순서에 따른 추천이며 실시간 빈자리 감지나 최적 경로 탐색은 아닙니다.
+## APK 설치 및 실행
 
-## 현재 범위
+1. 아래 테스트 환경의 **Pleos Connect 에뮬레이터**를 실행합니다.
+2. 제출용 APK를 다운로드해 에뮬레이터 창에 드래그하여 설치합니다. 또는 Android SDK의 `adb`로 설치합니다.
 
-- Kotlin/Jetpack Compose Android 앱, minSdk 28 / compileSdk 35 / targetSdk 34.
-- 오룡관 방문 흐름과 주차 후보 변경, 만남 장소 유지, 후보 소진, 방문 취소.
-- 로컬 저장으로 프로세스 재시작 후 방문 복원.
-- 일반 Android는 정차/주행 제한 시연 스위치, Automotive는 CarUxRestrictions 신호로 조작 제한(미확인 시 제한).
-- 공식 NaviHelper 3.0.5 연결과 에뮬레이터 경로 요청, 완료 콜백·목적지 대조·오류·타임아웃 처리. Pleos Connect 2.1.0에서 서비스 연결·하차 경로 탐색·목적지 좌표 일치를 확인했습니다.
-- NestJS 방문 API 연결, 암호화된 방문·토큰 저장, 오프라인 재전송 큐, QR 공유 및 동승자 모바일 웹.
-- 모바일 카드는 전경에서 5초마다 상태를 갱신하며 새 방문 시 기존 공유 링크를 폐기합니다.
-- JVM 상태 전이 테스트.
+   ```sh
+   adb devices
+   adb -s <에뮬레이터_SERIAL> install -r <다운로드한_APK_경로>
+   ```
 
-2026-11-13: arrive 브랜드·차량 UI·동승자 웹 개편. 최종 빌드 및 Lint 오류 0 / 기존 경고 6, 도메인 19개·웹 4개 테스트 통과. QR 공유와 주차→재회 흐름을 새 화면에서 확인했습니다.
+3. 에뮬레이터의 앱 목록에서 **arrive**를 실행합니다.
+4. 위치·알림 권한 요청이 표시되면 허용합니다. 차량 위치 관측과 내비게이션 이용 중 방문 복귀 알림에 사용합니다.
+5. 인터넷이 연결된 상태에서 방문을 시작합니다. 제출용 APK는 운영 API와 모바일 웹에 연결되므로 별도 서버 실행이나 계정 입력이 필요하지 않습니다.
 
-2026-11-12: 추정 좌표 6곳 반영, debug APK 빌드, 도메인 19개·동승자 웹 4개 테스트(기존 백엔드 검증 25개), 일반 Android 에뮬레이터 UI smoke 및 좁은 화면 검증 통과.
-Lint 오류 0 / 경고 7.
+기존에 다른 서명으로 빌드한 arrive가 설치되어 있으면 설치가 거부될 수 있습니다. 이때 기존 앱을 삭제한 뒤 설치하세요. 삭제 시 해당 기기의 로컬 방문 정보도 지워집니다.
 
-**현재 앱은 추정 장소 데이터를 사용하는 시연용입니다. 실제 Pleos 서비스 연결·하차 경로 완료·목적지 좌표 대조와 CarUxRestrictions 조작 가능 신호를 확인했습니다. 주행 상태 전환 검증은 남아 있습니다. 실차 길안내, 실시간 주차 가능 여부와 검증된 보행 경로는 제공하지 않습니다. 모바일 지도와 공유는 공개 HTTPS 환경에서 확인했으며, 휴대폰 합류 API도 마이그레이션·배포 후 운영 환경에서 확인했습니다. 실제 휴대폰으로 QR을 스캔하는 최종 시연 점검은 별도로 진행합니다.**
-여섯 장소의 이미지 기반 추정 좌표와 위치 배치도를 반영했습니다. 실제 차량 진입구와 이용 조건은 미확인이며 앱에 그 사실을 표시합니다. 실차 운전 중 사용하지 않습니다.
+## 시연 순서
 
-## 구성과 역할
+1. **방문 시작** — 현재 시연 장소를 선택하고 지도에서 하차 지점과 주차 후보를 확인합니다.
+2. **동승자 하차** — 동승자 공유 QR을 휴대폰으로 열면 건물 입구 안내와 운전자 진행 상태를 확인할 수 있습니다.
+3. **다음 주차장 추천** — ‘자리 없어요’를 누르면 이미 확인한 주차장을 제외하고 다음 후보를 자동 선택합니다. 추천 카드와 지도에 새 후보가 표시됩니다.
+4. **내비게이션 연결** — ‘이곳으로 길안내’를 누르면 선택한 목적지를 Pleos 기본 내비게이션으로 전달합니다. 알림함에서 arrive 방문 화면으로 복귀할 수 있습니다.
+5. **주차 후 휴대폰으로 이어가기** — ‘주차 완료’ 후 운전자용 QR을 열어 건물 입구 안내와 합류 확인을 휴대폰에서 이어갑니다.
+6. **합류 완료** — 운전자 휴대폰에서 ‘합류 확인’ → ‘만났어요’로 방문을 마칩니다.
 
-- `app/`: Android UI, Pleos 연동, 암호화된 로컬 저장과 방문 API 동기화.
-- `companion/`: QR로 여는 동승자/운전자 모바일 웹과 범위를 제한한 API 프록시(Node.js 22+).
-- `domain/`: 서버와 공유할 상태 전이 의미 및 Kotlin 테스트.
-- `contracts/`: 백엔드 API 계약과 시연 장소 JSON.
-- `backend/`: Claude 담당 NestJS API. 기존 API 계약으로 차량 앱과 모바일 웹을 연결했습니다.
+동승자 링크는 조회 전용이며, 운전자용 QR에는 합류 확인 권한이 있습니다. 두 링크의 역할을 구분해 시연하세요. 차량 위치·변속 상태는 하차·주차 확인을 돕는 데 사용하며, 상태 관측만으로 주차 완료를 확정하지 않습니다.
 
-## 다음 개발 작업
+## 테스트 환경 및 필요한 설정
 
-백엔드의 장소 목록, 버전 지정 상세, 방문 버전 고정은 구현되어 있습니다. 공개 목록은 오룡관 현재 버전 한 곳입니다. Android 장소 선택과 동승자 웹이 세션 버전을 조회하는 작업은 앱·웹의 후속 개발 범위로 남아 있습니다.
+| 항목 | 개발·시연 환경 |
+| --- | --- |
+| Pleos Connect 에뮬레이터 | **v2.1.0 · ARM64** |
+| 운영체제 | **Android 14 · API 34** |
+| 기기 프로필·화면 규격 | **12.8인치 · 2560 × 1440 px · 160 dpi · 가로 화면** |
+| 개발 호스트 | macOS · Apple Silicon |
+| 앱 버전 | `0.1.0-demo` · 패키지 `com.arrivetogether.app` |
+| Android 빌드 | minSdk 28 / compileSdk 35 / targetSdk 34 · Gradle 8.10 · JDK 17 이상 |
+| 모바일 웹 | HTTPS 환경의 모바일 브라우저 · 별도 앱 설치 불필요 |
+| 운영 API | `https://arrive-api.ikjun.com` |
+| 운영 모바일 웹 | `https://arrive.ikjun.com` |
 
-## 로컬 환경 설정
+- Pleos 연동 확인에는 일반 Android Automotive 이미지가 아닌 **Pleos Connect 시스템 이미지**가 필요합니다.
+- 에뮬레이터와 휴대폰 모두 인터넷에 연결되어 있어야 합니다. 운영 서버를 사용하는 시연에서는 두 기기가 같은 Wi-Fi에 있을 필요는 없습니다.
+- 차량의 주행 제한 신호가 활성화되면 앱 조작을 제한합니다. 버튼 조작 시연은 정차 상태에서 진행합니다.
+- 일반 Android 에뮬레이터에서도 기본 UI를 실행할 수 있지만 Pleos 내비게이션과 차량 신호 연동을 동일하게 검증할 수는 없습니다.
 
-루트 `.env.local`에 Pleos 프로젝트 ID를 입력할 수 있습니다.
-클라이언트 ID/시크릿은 선택이며 APK에 포함되지 않습니다.
-공개 API·동승자 웹 주소만 Gradle에서 읽어 앱 설정으로 연결합니다.
-입력 항목은 [환경변수 예시](.env.example)를 참고하세요. 운영 연결에는 `ARRIVAL_API_BASE_URL=https://arrive-api.ikjun.com`, `ARRIVAL_COMPANION_BASE_URL=https://arrive.ikjun.com`을 사용합니다.
+## 소스에서 빌드하기
 
-## 빌드
+Android Studio, Android SDK 35, JDK 17 이상을 준비합니다. Android Studio에 포함된 JDK 21도 사용할 수 있습니다. `local.properties`에 `sdk.dir`을 설정하거나 `ANDROID_HOME`으로 Android SDK 위치를 지정합니다.
 
-Android SDK 35, JDK 17 이상, Gradle 8.10을 사용합니다. Android Studio의 JDK 21도 사용 가능합니다.
-`local.properties`에 본인 SDK 경로를 설정하거나 `ANDROID_HOME`을 지정합니다.
+프로젝트 루트에 `.env.local`을 만들고 운영 연결 주소를 입력합니다.
+
+```dotenv
+ARRIVAL_API_BASE_URL=https://arrive-api.ikjun.com
+ARRIVAL_COMPANION_BASE_URL=https://arrive.ikjun.com
+```
+
+이 두 공개 주소만 APK 설정에 포함됩니다. 환경변수로도 지정할 수 있으며, 환경변수가 `.env.local`보다 우선합니다. 현재 구현된 NaviHelper·차량 상태 연동에는 Pleos 클라이언트 ID·시크릿 입력이 필요하지 않습니다. 프로젝트 ID는 로컬 기록용이며 APK에 포함되지 않습니다.
 
 ```sh
 ./gradlew :domain:test :app:assembleDebug :app:lintDebug
 ```
 
-APK: `app/build/outputs/apk/debug/app-debug.apk`
+생성된 `app/build/outputs/apk/debug/app-debug.apk`를 위 설치 절차에 따라 실행합니다. debug 빌드에서는 에뮬레이터 내비게이션 시연이 허용됩니다. release를 직접 빌드할 때는 별도 서명 설정이 필요하며, 에뮬레이터 내비게이션 시연에는 `-ParrivalEmulatorNavigation=true` 옵션을 사용합니다.
 
-설치 후 방문 시작 → 하차 확인 → ‘자리 없어요’ → 다음 주차장 추천 → ‘이곳으로 길안내’ →
-‘주차 완료’ → 휴대폰 입구 안내 → ‘합류 확인’ → ‘만났어요’. 네 후보를 모두 제외하면 현장 안내 확인과 방문 종료를 제안합니다.
-기본 앱은 일반 Android 에뮬레이터에서도 실행되며 넓은 창에서는 두 열로 표시됩니다.
+백엔드와 모바일 웹을 직접 실행하려면 [백엔드 README](backend/README.md)와 [모바일 웹 README](companion/README.md)를 참고하세요. 모바일 웹 로컬 실행에는 Node.js 22 이상이 필요합니다.
 
-## 동승자 공유 실행
+## Pleos SDK 활용
 
-로컬 API 준비는 [백엔드 실행 안내](backend/README.md), 웹 실행·배포 설정은 [모바일 웹 안내](companion/README.md)를 참고하세요.
-`python3 scripts/run_shared_demo.py --public-host <Mac의 LAN IP>`로 두 서비스를 함께 실행할 수 있습니다.
+| 기술 | 버전 | 앱에서의 역할 |
+| --- | --- | --- |
+| Pleos NaviHelper | `3.0.5` | 하차 지점·주차 후보의 목적지 좌표 전달, 경로 요청 결과 확인 |
+| Pleos FusedLocation | `1.1.3` | 차량 위치 관측과 도착 흐름의 확인 보조 |
+| Android Automotive 차량 API | 시스템 제공 | 변속 상태 관측, CarUxRestrictions에 따른 조작 제한 |
 
-## 장소 데이터
+내비게이션 요청은 호출 자체만으로 성공 처리하지 않습니다. 완료 콜백과 목적지를 대조하고 연결 해제·오류·타임아웃을 구분합니다. 내비게이션 이용 중에도 활성 방문의 관측을 유지하고, 알림을 통해 방문 화면으로 돌아올 수 있습니다.
 
-`contracts/oryong-demo.json`이 앱·서버 공통 원본입니다. 서버의 공개 장소 인덱스는 `contracts/venues/index.json`이며 현재는 오룡관 `oryong-demo-v2`만 가리킵니다. `:domain:generateOryongCatalog`가 Kotlin 데이터를 생성하므로 좌표를 두 군데에서 편집할 필요가 없습니다. 현재 버전은 `oryong-demo-v2`, 추정 상태는 `DEMO_UNVERIFIED`입니다.
+## 구현 및 검증 범위
 
-앱의 ‘장소 위치 보기’에서 하차·만남·주차장 4곳을 확인합니다. 주차 후보 변경 시 만남 위치는 고정됩니다. 위치 배치도는 길안내가 아니며, 후보 순서도 실제 주행 경로가 아닙니다. 이미지 기반 추정의 원본 기록과 `scripts/extract_site_coordinates.py`가 사용하는 입력 자료는 로컬 `docs/site-reference/`에만 보관하며 저장소에는 포함하지 않습니다. 앱 빌드와 서버 실행은 `contracts/`의 카탈로그를 사용합니다.
+- 지도 기반 운전자 화면, 하차·주차 후보·건물 입구 표시.
+- 사용자가 ‘자리 없어요’를 누르면 기존 후보를 제외하고 등록 순서에 따라 다음 후보 추천. 후보 소진·방문 취소 처리.
+- Pleos 서비스 연결, 경로 요청 완료 콜백 및 전달한 목적지 좌표 대조.
+- 방문 복원, 암호화된 토큰 저장, 오프라인 재전송 큐.
+- 운영 API·모바일 웹 연결과 휴대폰 합류 API 흐름. 동승자 조회 링크와 운전자 합류 확인 링크의 권한 분리.
+- 도메인 상태 전이, 모바일 웹, 백엔드 자동 테스트와 Android 빌드·Lint 검증. 실제 에뮬레이터·모바일 웹 화면으로 시연 영상 제작.
 
-## 다음 구현 단계
+### 현재 시연의 제한
 
-1. GIST 인근 출발 위치에서 주차 후보별 경로 검증. 서비스 연결·하차 목적지 완료 콜백 검증은 완료.
-2. NaviHelper 경로 요청을 실행하고 실제 승하차 허용 지점·주차 진입구·일방통행 경로 대조.
-3. Virtual Console로 CarUxRestrictions 반응 검증. 필요할 때 Vehicle SDK의 기어·도어 등 capability를 추가 연결.
-4. 실제 휴대폰 QR 스캔과 합류 흐름의 현장 검증. 서버·웹 실행 방법은 각 폴더의 README를 참고합니다.
-5. UI 및 실사용 시나리오 검증 후 제출용 release 서명·APK·영상 준비.
+현재 등록된 시연 장소는 **GIST 오룡관 한 곳**입니다. 장소 정보는 카탈로그로 분리했지만 여러 장소를 대상으로 한 추천은 아직 검증하지 않았습니다.
 
-## SDK 근거 (2026-11-11 확인)
+주차 후보 추천은 **등록된 순서와 사용자가 제외한 후보**를 기반으로 합니다. 실시간 빈자리 감지, 주차 가능 보장, 최적 경로 탐색 기능은 제공하지 않습니다. 장소 좌표는 위성 이미지 기반 추정치이며 실제 진입구·이용 조건·보행 경로는 현장 검증 전입니다.
 
-- [NaviHelper](https://document.pleos.ai/docs/pleos-only/connect-sdk-pleos/NaviHelper/intro)
-- [NaviHelper dependency](https://document.pleos.ai/docs/pleos-only/connect-sdk-pleos/NaviHelper/importing-sdk): `ai.pleos.playground:NaviHelper:3.0.5`
-- [Vehicle](https://document.pleos.ai/docs/pleos-only/connect-sdk-pleos/Vehicle/intro)
-- [주행 제한](https://document.pleos.ai/docs/pleos-only/vehicle-app-planning-guide/driver-distraction-guideline)
-- [에뮬레이터](https://document.pleos.ai/docs/connect/guide/getting-started/application-development/setup-connect-sdk-emulator)
+시연 환경에서 Pleos 기본 내비게이션의 목적지 전달과 경로 요청은 확인했지만, **배경 지도가 표시되지 않고 기본 출발 위치가 남는 현상**이 있습니다. 영상은 이 상태를 포함하며 실제 캠퍼스 주행을 재현한 것이 아닙니다. 실차와 현장 QR 이용, 주행 상태 전환을 포함한 검증은 별도로 필요합니다. 현재 결과물은 에뮬레이터 시연용입니다.
 
-`requestRoute()` 호출 반환만으로 경로 안내 성공을 표시하지 않습니다. SDK 어댑터 구현 시
-콜백 실패/미응답/연결 해제를 구분하고, 실제 경로가 확인되지 않으면 다음 단계로 자동 진행하지 않습니다.
+## 저장소 구성
 
-## 내비 복귀와 휴대폰 합류
+| 경로 | 내용 |
+| --- | --- |
+| `app/` | Kotlin·Jetpack Compose 차량 앱, Pleos 연동, 방문 동기화 |
+| `domain/` | 방문 상태 전이와 테스트 |
+| `companion/` | 동승자·운전자 모바일 웹, API 프록시, Cloudflare Pages 배포 구성 |
+| `backend/` | NestJS 방문 API와 데이터베이스 마이그레이션 |
+| `contracts/` | [API 계약](contracts/openapi.yaml), 장소 카탈로그와 버전 인덱스 |
+| `assets/` | arrive 로고·앱 아이콘 원본 |
 
-[API 계약](contracts/openapi.yaml)과 [백엔드 실행 안내](backend/README.md)를 참고하세요. NestJS handoff API와 추가 테이블 마이그레이션까지 구현되어 있으며 백엔드 50개, 도메인 29개, 웹 23개 테스트가 통과했습니다. 배포 성공 여부는 해당 커밋의 CI/Pages 상태와 실제 운영 API로 별도 확인해야 합니다.
-
-내부 기획·검증·제출 작업 문서는 로컬 `docs/`에서 관리하며 Git으로 추적하지 않습니다.
+`contracts/oryong-demo.json`을 앱·서버 공통 장소 원본으로 사용합니다. 내부 기획·검증 문서인 `docs/`와 제출 산출물인 `output/`은 로컬에서 관리하며 저장소에 포함하지 않습니다.
