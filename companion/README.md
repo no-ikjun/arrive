@@ -60,7 +60,7 @@ Cloudflare Fetch는 `redirect: error`를 지원하지 않으므로 `manual`로 �
 
 첫 화면에 하차 지점·주차장·건물 입구 지도를 표시하고 동승자가 먼저 입장하도록 안내합니다. Leaflet 1.9.4는 `public/map/vendor`에 포함하며 별도 npm 빌드는 없습니다. 배경 지도는 OpenStreetMap 타일을 직접 요청합니다. 지도 출처 표시와 브라우저 캐시를 유지하고, 공유 인증 정보는 지도 요청에 전달하지 않습니다.
 
-`public/guides`의 보충 입구 데이터는 해당 venueId/catalogVersion에만 적용합니다. 다른 장소는 입구 미등록 상태를 표시합니다. 추정 좌표를 실제 보행 경로로 연결하지 않습니다. 백엔드 확장 계약과 현장 확인 작업은 [지도·입구 안내 인계 문서](../docs/ARRIVAL_MAP_HANDOFF.md)를 참고하세요.
+`public/guides`의 보충 입구 데이터는 해당 venueId/catalogVersion에만 적용합니다. 다른 장소는 입구 미등록 상태를 표시합니다. 추정 좌표를 실제 보행 경로로 연결하지 않습니다. 공개 API는 [계약 파일](../contracts/openapi.yaml)을 참고하고, 실제 출입구·보행 동선·이용 조건은 현장 확인 후 갱신해야 합니다.
 
 
 동승자 화면은 전체 화면 지도에 목적지 바와 하단 안내 패널을 겹쳐 표시합니다. 패널을 펼치면 이동 설명/사진/방문 정보가 나타납니다. 지도는 패널에 가려지지 않는 영역에 장소를 맞춥니다. 모바일 가로 화면과 데스크톱에서는 안내 패널이 왼쪽에 배치됩니다.
@@ -69,4 +69,4 @@ Cloudflare Fetch는 `redirect: error`를 지원하지 않으므로 `manual`로 �
 
 ## 운전자 휴대폰 이어가기
 
-`#handoff=<token>`은 운전자용 입구 안내와 합류 확인을 제공합니다. 기존 `#token=<shareToken>` 링크에 쓰기 권한을 부여하지 않습니다. 확인 전 사용자 재확인, 동일 키 재시도, 서버 revision 검증을 적용합니다. 새 API 배포가 필요하며 [Claude API 계약](../docs/CLAUDE_CONTINUITY_BACKEND.md)과 [적용 순서·검증 결과](../docs/CONTINUITY_SETUP.md)를 참고하세요.
+`#handoff=<token>`은 운전자용 입구 안내와 합류 확인을 제공합니다. 기존 `#token=<shareToken>` 링크에 쓰기 권한을 부여하지 않습니다. 확인 전 사용자 재확인, 동일 키 재시도, 서버 revision 검증을 적용합니다. 필요한 API와 배포 설정은 [API 계약](../contracts/openapi.yaml)과 [백엔드 안내](../backend/README.md)를 참고하세요.

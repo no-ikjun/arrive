@@ -20,4 +20,4 @@ output/
 __pycache__/
 *.py[cod]
 
-docs/
+/docs/
