@@ -8,14 +8,12 @@
 
 | 자료 | 위치 |
 | --- | --- |
-| 제출용 APK | **[APK 다운로드 링크 입력 예정]** |
+| 제출용 APK | [apk/arrive_arrive_release.apk](apk/arrive_arrive_release.apk) |
 | 소스 코드 | [GitHub · no-ikjun/arrive](https://github.com/no-ikjun/arrive) |
 | 시연 영상 | 개인 드라이브 링크로 별도 제출 · 약 2분 30초, 실제 화면 녹화와 한국어 TTS |
 | 모바일 웹 | [arrive.ikjun.com](https://arrive.ikjun.com) · 방문별 QR 링크로 접속 |
 
-<!-- APK 업로드 후 위의 자리표시자를 [APK 다운로드](실제 다운로드 URL)로 교체하세요. -->
-
-APK와 영상은 저장소에 포함하지 않습니다. 제출용 APK의 로컬 보관 위치는 `output/submission/arrive_arrive_release.apk`이며, 이 경로는 Git으로 추적하지 않습니다. 직접 빌드한 debug APK는 `app/build/outputs/apk/debug/app-debug.apk`에 생성됩니다.
+제출용 release APK는 `apk/arrive_arrive_release.apk`에 포함되어 있습니다. 파일명은 `팀명_앱이름_release.apk` 형식에 맞춰 기존 제출용 파일명인 `arrive_arrive_release.apk`를 사용합니다. GitHub의 APK 파일 페이지에서 **Download raw file**로 다운로드할 수 있습니다. 시연 영상은 개인 드라이브 링크로 별도 제출합니다. 직접 빌드한 debug APK는 `app/build/outputs/apk/debug/app-debug.apk`에 생성됩니다.
 
 ## APK 설치 및 실행
 
@@ -121,5 +119,6 @@ ARRIVAL_COMPANION_BASE_URL=https://arrive.ikjun.com
 | `backend/` | NestJS 방문 API와 데이터베이스 마이그레이션 |
 | `contracts/` | [API 계약](contracts/openapi.yaml), 장소 카탈로그와 버전 인덱스 |
 | `assets/` | arrive 로고·앱 아이콘 원본 |
+| `apk/` | 제출용 서명된 release APK |
 
 `contracts/oryong-demo.json`을 앱·서버 공통 장소 원본으로 사용합니다. 내부 기획·검증 문서인 `docs/`와 제출 산출물인 `output/`은 로컬에서 관리하며 저장소에 포함하지 않습니다.
