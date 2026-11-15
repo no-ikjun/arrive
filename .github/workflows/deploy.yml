@@ -17,10 +17,6 @@ concurrency:
   group: k3s-${{ github.ref }}
   cancel-in-progress: false
 
-env:
-  APP: arrive
-  IMAGE_REPOSITORY: docker.io/ikjunchoi/arrive-together-be
-
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -50,59 +46,22 @@ jobs:
       - name: Build application
         working-directory: backend
         run: npm run build
-      - name: Validate deploy helper syntax
-        run: bash -n scripts/ci/deploy-k3s.sh
 
-  publish:
+  release:
     needs: validate
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    outputs:
-      digest: ${{ steps.image.outputs.digest }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-      - name: Build and publish immutable release
-        id: image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: backend/Dockerfile
-          platforms: linux/amd64
-          push: true
-          tags: ${{ env.IMAGE_REPOSITORY }}:sha-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-          labels: |
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          build-args: |
-            SOURCE_REVISION=${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  deploy:
-    needs: publish
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v4
-      - name: Deploy and verify on Lightsail
-        env:
-          IMAGE: ${{ env.IMAGE_REPOSITORY }}@${{ needs.publish.outputs.digest }}
-          LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
-          LIGHTSAIL_USERNAME: ${{ secrets.LIGHTSAIL_USERNAME }}
-          LIGHTSAIL_SSH_KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
-        run: bash scripts/ci/deploy-k3s.sh
-      - name: Record deployment
-        env:
-          RELEASE_IMAGE: ${{ env.IMAGE_REPOSITORY }}@${{ needs.publish.outputs.digest }}
-        run: |
-          printf '### %s deployment\n\nCommit: `%s`\n\nImage: `%s`\n' \
-            "$APP" "$GITHUB_SHA" "$RELEASE_IMAGE" >> "$GITHUB_STEP_SUMMARY"
+    uses: no-ikjun/lightsail-infra/.github/workflows/k3s-release.yml@6ca6b41f5d1c970f8c7fe45098ff70071968ff72
+    with:
+      service: arrive
+      production_branch: main
+      image_repository: docker.io/ikjunchoi/arrive-together-be
+      dockerfile: backend/Dockerfile
+      build_context: .
+    secrets:
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
+      LIGHTSAIL_USERNAME: ${{ secrets.LIGHTSAIL_USERNAME }}
+      LIGHTSAIL_SSH_KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+      LIGHTSAIL_KNOWN_HOSTS: ${{ secrets.LIGHTSAIL_KNOWN_HOSTS }}
+      SSH_PORT: ${{ secrets.SSH_PORT }}
