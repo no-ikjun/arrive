@@ -71,7 +71,9 @@ private fun ArrivalApp(visit: VisitViewModel, navigation: PleosNavigation, telem
     fun dispatch(action: TripAction) {
         if (visit.dispatch(action, !restricted)) {
             ArrivalMonitor.update(context, visit.trip)
-            navigation.followTrip(visit.trip, userInitiated = true)
+            // Keep the recommendation visible. Selecting the next lot is automatic;
+            // opening navigation is a separate, explicit action on the recommendation.
+            navigation.followTrip(visit.trip, userInitiated = action != TripAction.RejectParking)
             if (action == TripAction.ConfirmParked) phoneOpen = true
         }
     }
@@ -86,6 +88,7 @@ private fun ArrivalApp(visit: VisitViewModel, navigation: PleosNavigation, telem
         BoxWithConstraints(Modifier.windowInsetsPadding(WindowInsets.safeDrawing)) {
             val wide = maxWidth >= 900.dp
             val compact = maxHeight < 620.dp
+            val routeBesideDestination = !wide && maxWidth >= 600.dp
             val gutter = if (wide) 32.dp else 20.dp
             Column(Modifier.fillMaxSize()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = gutter, vertical = 12.dp),
@@ -94,7 +97,7 @@ private fun ArrivalApp(visit: VisitViewModel, navigation: PleosNavigation, telem
                         Modifier.width(if (wide) 132.dp else 88.dp).height(44.dp), colorFilter = ColorFilter.tint(ArriveInk))
                     if (wide) {
                         VerticalDivider(Modifier.height(28.dp), color = ArriveLine)
-                        Text(venue.name, fontSize = 21.sp, modifier = Modifier.weight(1f))
+                        Text("도착 안내", fontSize = 21.sp, modifier = Modifier.weight(1f))
                         SmallLabel("시연 · 추정 위치")
                     } else Spacer(Modifier.weight(1f))
                     DriverButton("더 보기", R.drawable.ic_more, enabled = !restricted, onClick = { infoOpen = true })
@@ -102,7 +105,7 @@ private fun ArrivalApp(visit: VisitViewModel, navigation: PleosNavigation, telem
                 HorizontalDivider(color = ArriveLine)
                 if (!wide && !compact) Row(Modifier.fillMaxWidth().padding(horizontal = gutter, vertical = 10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(venue.name, fontSize = 18.sp)
+                    Text("도착 안내", fontSize = 18.sp)
                     Text("시연 · 추정 위치", fontSize = 14.sp, color = ArriveMuted)
                 }
                 if (restricted) {
@@ -119,23 +122,31 @@ private fun ArrivalApp(visit: VisitViewModel, navigation: PleosNavigation, telem
                                     }
                                     CurrentDestination(trip, venue, navigation, simulatedRestricted,
                                         Modifier.weight(1f).fillMaxWidth(), compact = compact, prominent = !compact, entranceName = guide?.entranceName)
-                                    ActionDock(trip, visit, Modifier.fillMaxWidth(), ::dispatch, { resetOpen = true }, prominent = !compact, cue = cue, autoRoute = navigation.routeTestingEnabled, onPhone = { phoneOpen = true })
+                                    ActionDock(trip, visit, Modifier.fillMaxWidth(), ::dispatch, { resetOpen = true }, prominent = !compact, cue = cue, autoRoute = navigation.routeTestingEnabled, onExhausted = { cancelOpen = true }, onPhone = { phoneOpen = true })
                                 }
                             }
                             Column(Modifier.weight(1.4f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 ArrivalMapPanel(trip, Modifier.weight(1f).fillMaxWidth(), telemetry.freshFix)
+                                if (trip.stage == TripStage.TO_PARKING && trip.parking != null)
+                                    ParkingRouteAction(navigation, trip, simulatedRestricted)
                                 DriverButton("입구 안내 공유", R.drawable.ic_share, Modifier.fillMaxWidth()) { cardOpen = true }
                             }
                         }
                     } else {
                         JourneyProgress(trip.stage, Modifier.padding(horizontal = gutter, vertical = if (compact) 8.dp else 12.dp), dense = compact)
                         ArrivalMapPanel(trip, Modifier.weight(1f).fillMaxWidth().padding(horizontal = gutter), telemetry.freshFix)
-                        CurrentDestination(trip, venue, navigation, simulatedRestricted,
-                            Modifier.height(if (compact) 90.dp else 140.dp).fillMaxWidth().padding(horizontal = gutter),
-                            compact = true, entranceName = guide?.entranceName)
+                        if (!routeBesideDestination && trip.stage == TripStage.TO_PARKING && trip.parking != null)
+                            ParkingRouteAction(navigation, trip, simulatedRestricted, Modifier.padding(horizontal = gutter))
+                        Row(Modifier.height(if (compact) 112.dp else 140.dp).fillMaxWidth().padding(horizontal = gutter),
+                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            CurrentDestination(trip, venue, navigation, simulatedRestricted,
+                                Modifier.weight(1f).fillMaxHeight(), compact = true, entranceName = guide?.entranceName)
+                            if (routeBesideDestination && trip.stage == TripStage.TO_PARKING && trip.parking != null)
+                                ParkingRouteAction(navigation, trip, simulatedRestricted, Modifier.width(260.dp))
+                        }
                         // Confirmation remains visible even in a short or split application window.
                         ActionDock(trip, visit, Modifier.padding(horizontal = gutter, vertical = 12.dp),
-                            ::dispatch, { resetOpen = true }, cue = cue, autoRoute = navigation.routeTestingEnabled, onPhone = { phoneOpen = true })
+                            ::dispatch, { resetOpen = true }, cue = cue, autoRoute = navigation.routeTestingEnabled, onExhausted = { cancelOpen = true }, onPhone = { phoneOpen = true })
                     }
                 }
                 if (!navigation.automotive) Row(Modifier.padding(horizontal = gutter), verticalAlignment = Alignment.CenterVertically) {
@@ -200,7 +211,7 @@ private fun JourneyProgress(stage: TripStage, modifier: Modifier = Modifier, den
     BoxWithConstraints(modifier.fillMaxWidth()) {
         val small = dense || maxWidth < 500.dp
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (small) 8.dp else 16.dp)) {
-            listOf("하차", "주차", "입장").forEachIndexed { index, label ->
+            listOf("하차", "주차", "합류").forEachIndexed { index, label ->
                 val selected = index == current && stage != TripStage.CANCELLED
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (!small) Surface(shape = RoundedCornerShape(10.dp), color = if (selected) ArriveInk else ArriveBackground) {
@@ -219,23 +230,28 @@ private fun JourneyProgress(stage: TripStage, modifier: Modifier = Modifier, den
 @Composable
 private fun CurrentDestination(trip: Trip, venue: VisitPlace, navigation: PleosNavigation, simulatedRestricted: Boolean,
                                modifier: Modifier, compact: Boolean, prominent: Boolean = false, entranceName: String? = null) {
+    if (trip.stage == TripStage.TO_PARKING) {
+        ParkingRecommendation(trip, venue, modifier, compact, prominent)
+        return
+    }
     val title = when (trip.stage) {
-        TripStage.PLANNED, TripStage.TO_DROPOFF -> venue.localName(venue.dropoff)
+        TripStage.PLANNED -> "도착을 준비해요"
+        TripStage.TO_DROPOFF -> venue.localName(venue.dropoff)
         TripStage.TO_PARKING -> trip.parking?.let(venue::localName) ?: "주차 후보 없음"
         TripStage.WALKING_TO_MEETING -> entranceName ?: "건물 입구 확인"
         TripStage.REUNITED -> "함께 도착했어요"
         TripStage.CANCELLED -> "방문을 종료했어요"
     }
     val instruction = when (trip.stage) {
-        TripStage.PLANNED -> "동승자가 먼저 내릴 곳"
+        TripStage.PLANNED -> "하차부터 주차까지"
         TripStage.TO_DROPOFF -> "동승자 하차 후 눌러 주세요"
         TripStage.TO_PARKING -> "운전자가 주차할 곳"
-        TripStage.WALKING_TO_MEETING -> "건물로 이동할 차례"
+        TripStage.WALKING_TO_MEETING -> "동승자에게 합류할 차례"
         TripStage.REUNITED -> "방문 완료"
         TripStage.CANCELLED -> "방문 종료"
     }
     val note = when (trip.stage) {
-        TripStage.PLANNED -> "동승자는 입구로 · 운전자는 주차장으로"
+        TripStage.PLANNED -> "첫 안내 · ${venue.localName(venue.dropoff)}\n자리 없으면 다음 주차 후보를 추천해요"
         TripStage.TO_DROPOFF -> "정차 가능 여부 확인"
         TripStage.TO_PARKING -> if (trip.parking == null) "현장 안내 확인" else "빈자리 정보 없음"
         TripStage.WALKING_TO_MEETING -> "동승자가 먼저 들어간 건물로 이동"
@@ -295,12 +311,13 @@ private fun shareStatus(visit: VisitViewModel): String = when {
 }
 
 @Composable
-private fun ActionDock(trip: Trip, visit: VisitViewModel, modifier: Modifier, dispatch: (TripAction) -> Unit, onReset: () -> Unit, prominent: Boolean = false, cue: ArrivalCue = ArrivalCue.NONE, autoRoute: Boolean = false, onPhone: () -> Unit) {
+private fun ActionDock(trip: Trip, visit: VisitViewModel, modifier: Modifier, dispatch: (TripAction) -> Unit, onReset: () -> Unit, prominent: Boolean = false, cue: ArrivalCue = ArrivalCue.NONE, autoRoute: Boolean = false, onExhausted: () -> Unit, onPhone: () -> Unit) {
+    val exhausted = trip.stage == TripStage.TO_PARKING && trip.parking == null
     val hasAlternative = trip.stage == TripStage.TO_PARKING && trip.parking != null
     val label = when (trip.stage) {
         TripStage.PLANNED -> if (autoRoute) "시작 · 길안내" else "방문 시작"
         TripStage.TO_DROPOFF -> if (autoRoute) "하차 확인 · 주차 안내" else "하차 완료"
-        TripStage.TO_PARKING -> if (trip.parking != null) "주차 완료" else "새 방문"
+        TripStage.TO_PARKING -> if (trip.parking != null) "주차 완료" else "방문 종료"
         TripStage.WALKING_TO_MEETING -> "휴대폰으로 이어가기"
         else -> "새 방문"
     }
@@ -311,9 +328,9 @@ private fun ActionDock(trip: Trip, visit: VisitViewModel, modifier: Modifier, di
         TripStage.WALKING_TO_MEETING -> TripAction.ConfirmReunion
         else -> null
     }
-    val icon = if (trip.stage == TripStage.WALKING_TO_MEETING) R.drawable.ic_share else if (action == null) R.drawable.ic_add else if (action == TripAction.Start) R.drawable.ic_arrow else R.drawable.ic_check
-    val enabled = if (action == null) !visit.storageFailed && !visit.state.deleting else visit.actionsAllowed
-    val confirm: () -> Unit = { if (trip.stage == TripStage.WALKING_TO_MEETING) onPhone() else if (action != null) dispatch(action) else onReset() }
+    val icon = if (exhausted) R.drawable.ic_close else if (trip.stage == TripStage.WALKING_TO_MEETING) R.drawable.ic_share else if (action == null) R.drawable.ic_add else if (action == TripAction.Start) R.drawable.ic_arrow else R.drawable.ic_check
+    val enabled = if (exhausted) visit.actionsAllowed else if (action == null) !visit.storageFailed && !visit.state.deleting else visit.actionsAllowed
+    val confirm: () -> Unit = { if (exhausted) onExhausted() else if (trip.stage == TripStage.WALKING_TO_MEETING) onPhone() else if (action != null) dispatch(action) else onReset() }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         val cueText = when (cue) {
             ArrivalCue.CONFIRM_DROPOFF -> "하차 지점 근처예요. 동승자가 내렸나요?"
@@ -326,11 +343,11 @@ private fun ActionDock(trip: Trip, visit: VisitViewModel, modifier: Modifier, di
             Text(shareStatus(visit), color = ArriveWarning, fontSize = 17.sp)
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             if (maxWidth < 440.dp && hasAlternative) Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                DriverButton(label, icon, Modifier.fillMaxWidth(), primary = true, enabled = enabled, prominent = prominent, onClick = confirm)
-                DriverButton("다른 주차장", R.drawable.ic_retry, Modifier.fillMaxWidth(), enabled = visit.actionsAllowed, prominent = prominent) { dispatch(TripAction.RejectParking) }
+                DriverButton(label, icon, Modifier.fillMaxWidth(), primary = !hasAlternative, enabled = enabled, prominent = prominent, onClick = confirm)
+                DriverButton("자리 없어요", R.drawable.ic_arrow, Modifier.fillMaxWidth(), primary = true, enabled = visit.actionsAllowed, prominent = prominent) { dispatch(TripAction.RejectParking) }
             } else Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                DriverButton(label, icon, Modifier.weight(1f), primary = true, enabled = enabled, prominent = prominent, onClick = confirm)
-                if (hasAlternative) DriverButton("다른 주차장", R.drawable.ic_retry, Modifier.weight(1f), enabled = visit.actionsAllowed, prominent = prominent) { dispatch(TripAction.RejectParking) }
+                DriverButton(label, icon, Modifier.weight(1f), primary = !hasAlternative, enabled = enabled, prominent = prominent, onClick = confirm)
+                if (hasAlternative) DriverButton("자리 없어요", R.drawable.ic_arrow, Modifier.weight(1f), primary = true, enabled = visit.actionsAllowed, prominent = prominent) { dispatch(TripAction.RejectParking) }
             }
         }
     }

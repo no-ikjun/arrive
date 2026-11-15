@@ -21,13 +21,21 @@ export function createArrivalMap(element, { driver = false, onStatus = () => {},
   let vehicle = null;
   if (driver) { map.createPane('vehicle'); map.getPane('vehicle').style.zIndex = '625'; }
   let bounds = null, key = '';
-  function fit() { if (bounds?.isValid()) map.fitBounds(bounds, { paddingTopLeft: driver ? [80, 80] : [56, 76], paddingBottomRight: driver ? [80, 90] : [56, 86], ...getPadding?.(), maxZoom: 18, animate: false }); }
+  function fit() {
+    if (!bounds?.isValid()) return;
+    // Fixed tall-screen padding can push the selected lot off a short vehicle map.
+    const short = driver && map.getSize().y < 300;
+    element.classList.toggle('short-map', short);
+    map.fitBounds(bounds, { paddingTopLeft: driver ? [80, short ? 30 : 80] : [56, 76],
+      paddingBottomRight: driver ? [80, short ? 40 : 90] : [56, 86],
+      ...getPadding?.(), maxZoom: 18, animate: false });
+  }
   const Fit = L.Control.extend({ options: { position: 'topright' }, onAdd() {
     const button = L.DomUtil.create('button', 'map-fit'); button.type = 'button'; button.textContent = '전체';
     button.setAttribute('aria-label', '모든 장소 보기'); L.DomEvent.disableClickPropagation(button);
     L.DomEvent.on(button, 'click', fit); return button;
   }}); new Fit().addTo(map);
-  function marker(place, label, kind, selected = false, tooltip = false) {
+  function marker(place, label, kind, selected = false, tooltip = false, recommended = false) {
     if (!coordinate(place?.coordinate)) return;
     const node = document.createElement('span'); node.className = `place-pin ${kind}${selected ? ' selected' : ''}`;
     node.textContent = label;
@@ -35,8 +43,8 @@ export function createArrivalMap(element, { driver = false, onStatus = () => {},
       title: place.name, alt: place.name,
       icon: L.divIcon({ html: node, className: 'place-marker', iconSize: [42, 42], iconAnchor: [21, 21] }),
     }).addTo(points);
-    const text = document.createElement('span'); text.textContent = place.name;
-    m.bindTooltip(text, { permanent: tooltip, direction: kind === 'entrance' ? 'bottom' : 'top', offset: [0, kind === 'entrance' ? 24 : -24], className: 'place-label' });
+    const text = document.createElement('span'); text.textContent = recommended ? `추천 · ${place.name}` : place.name;
+    m.bindTooltip(text, { permanent: tooltip, direction: recommended ? 'left' : kind === 'entrance' ? 'bottom' : 'top', offset: recommended ? [-28, 0] : [0, kind === 'entrance' ? 24 : -24], className: `place-label${recommended ? ' recommendation-label' : ''}` });
     bounds.extend(m.getLatLng());
   }
   return {
@@ -49,7 +57,7 @@ export function createArrivalMap(element, { driver = false, onStatus = () => {},
       if (guide) marker(guide.entrance, '입구', 'entrance', !driver || !beforeParking && state.stage !== 'TO_PARKING', true);
       venue.parkingCandidates.forEach((p, i) => {
         const excluded = state.excludedParkingIds?.includes(p.id), selected = p.id === state.parkingId;
-        if (driver || selected) marker(p, `P${i + 1}`, excluded ? 'excluded' : 'parking', selected && state.stage === 'TO_PARKING', false);
+        if (driver || selected) marker(p, driver ? (excluded ? '×' : 'P') : `P${i + 1}`, excluded ? 'excluded' : 'parking', selected && state.stage === 'TO_PARKING', driver && selected && state.stage === 'TO_PARKING', driver && selected && state.stage === 'TO_PARKING');
       });
       // No straight-line "walking route": geometry is not yet field-verified.
       map.invalidateSize(); fit();

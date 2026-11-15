@@ -33,7 +33,7 @@ internal fun ArrivalMapPanel(trip: Trip, modifier: Modifier = Modifier, fix: Veh
             update = { it.showTrip(trip, fix) },
             onRelease = { it.stopLoading(); it.destroy() },
             modifier = Modifier.weight(1f).fillMaxWidth())
-        Text("하차 · 주차 후보 · 건물 입구", fontSize = 19.sp)
+        Text(if (trip.stage == TripStage.TO_PARKING) "검정 P · 추천 주차장 / × · 이번 방문에서 제외" else "하차 · 주차 후보 · 건물 입구", fontSize = 19.sp)
         Text(if (fix != null) "파란 점 · 차량 위치 / 장소 핀 · 추정 위치 / 빈자리 정보 없음" else "차량 위치 수신 대기 · 장소 핀은 추정 위치", fontSize = 15.sp, color = ArriveMuted)
     }
 }

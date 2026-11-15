@@ -24,8 +24,8 @@ internal class PleosNavigation(private val context: Context) {
     var attempt by mutableStateOf(RouteAttempt()); private set
     var realRestricted by mutableStateOf<Boolean?>(null); private set
     val automotive = context.packageManager.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)
-    // Current catalog is image-estimated. Requests are a debug emulator check, never a real-car feature.
-    val routeTestingEnabled = BuildConfig.DEBUG &&
+    // Current catalog is image-estimated. Requests are an emulator check, including opted-in submission builds, never a real-car feature.
+    val routeTestingEnabled = (BuildConfig.DEBUG || BuildConfig.EMULATOR_NAVIGATION) &&
         (Build.HARDWARE in setOf("ranchu", "goldfish") || Build.FINGERPRINT.startsWith("generic"))
     private val handler = Handler(Looper.getMainLooper())
     private var helper: NaviHelper? = null

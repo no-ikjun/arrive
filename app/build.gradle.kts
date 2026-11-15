@@ -50,6 +50,21 @@ android {
         buildConfigField("String", "ARRIVAL_API_BASE_URL", javaString(apiBaseUrl))
         buildConfigField("String", "ARRIVAL_COMPANION_BASE_URL", javaString(companionBaseUrl))
     }
+    // Submission builds may opt into emulator navigation without enabling debugging.
+    // PleosNavigation also checks emulator hardware; image-estimated points stay blocked on real cars.
+    defaultConfig {
+        buildConfigField("boolean", "EMULATOR_NAVIGATION", providers.gradleProperty("arrivalEmulatorNavigation").orNull?.toBooleanStrictOrNull()?.toString() ?: "false")
+    }
+    val signingFile = providers.environmentVariable("ARRIVAL_KEYSTORE_FILE").orNull
+    if (!signingFile.isNullOrBlank()) {
+        signingConfigs.create("submission") {
+            storeFile = file(signingFile)
+            storePassword = providers.environmentVariable("ARRIVAL_KEYSTORE_PASSWORD").get()
+            keyAlias = providers.environmentVariable("ARRIVAL_KEY_ALIAS").get()
+            keyPassword = providers.environmentVariable("ARRIVAL_KEY_PASSWORD").get()
+        }
+        buildTypes.getByName("release") { signingConfig = signingConfigs.getByName("submission") }
+    }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
